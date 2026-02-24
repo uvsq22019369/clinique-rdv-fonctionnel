@@ -7,4 +7,9 @@ WTForms==3.0.1
 email-validator==2.0.0
 python-dotenv==1.0.0
 reportlab==4.0.4
-# Laisse pip choisir Werkzeug automatiquement
+gunicorn==21.2.0
+flask-limiter==3.9.0
+flask-mail==0.10.0
+flask-babel==4.0.0
+pandas==2.2.3
+requests==2.32.3
