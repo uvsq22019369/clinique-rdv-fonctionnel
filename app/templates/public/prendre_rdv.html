@@ -11,7 +11,8 @@
                     <h4 class="mb-0">Prendre rendez-vous - {{ clinique.nom }}</h4>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('public.reserver_rdv_public', clinique_slug=clinique.slug) }}">
+                    <!-- CORRIGÉ : slug au lieu de clinique_slug -->
+                    <form method="POST" action="{{ url_for('public.reserver_rdv_public', slug=clinique.slug) }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         
                         <div class="mb-3">
