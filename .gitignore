@@ -1,0 +1,20 @@
+# Sauvegardes
+backups/
+*.sql
+*.backup
+
+# Fichiers de log
+logs/
+*.log
+
+# Environnement
+.env
+.venv
+venv/
+__pycache__/
+*.pyc
+
+# Base de données locale
+*.db
+*.db-journal
+instance/
