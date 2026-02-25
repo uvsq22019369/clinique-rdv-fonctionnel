@@ -10,6 +10,7 @@
                 <h4 class="mb-0"><i class="bi bi-person-circle"></i> {{ _('Mon Profil') }}</h4>
             </div>
             <div class="card-body">
+                <!-- Formulaire de modification du profil -->
                 <form method="POST" action="{{ url_for('auth.modifier_profil') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     
@@ -45,7 +46,23 @@
 
                 <hr class="my-4">
 
+                <!-- ======================================================= -->
+                <!-- CHANGEMENT DE MOT DE PASSE -->
+                <!-- ======================================================= -->
                 <h5>{{ _('Changer le mot de passe') }}</h5>
+
+                <!-- Message d'aide pour les critères de mot de passe -->
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    {{ _('Le mot de passe doit contenir :') }}
+                    <ul class="mb-0 mt-1">
+                        <li>{{ _('Au moins 8 caractères') }}</li>
+                        <li>{{ _('Au moins une majuscule') }}</li>
+                        <li>{{ _('Au moins une minuscule') }}</li>
+                        <li>{{ _('Au moins un chiffre') }}</li>
+                    </ul>
+                </div>
+
                 <form method="POST" action="{{ url_for('auth.changer_mot_de_passe') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     
@@ -57,12 +74,12 @@
                     <div class="mb-3">
                         <label for="nouveau_mot_de_passe" class="form-label">{{ _('Nouveau mot de passe') }}</label>
                         <input type="password" class="form-control" id="nouveau_mot_de_passe" 
-                               name="nouveau_mot_de_passe" minlength="6" required>
+                               name="nouveau_mot_de_passe" minlength="8" required>
                     </div>
                     <div class="mb-3">
                         <label for="confirmer_mot_de_passe" class="form-label">{{ _('Confirmer') }}</label>
                         <input type="password" class="form-control" id="confirmer_mot_de_passe" 
-                               name="confirmer_mot_de_passe" minlength="6" required>
+                               name="confirmer_mot_de_passe" minlength="8" required>
                     </div>
                     <button type="submit" class="btn btn-warning">
                         <i class="bi bi-key"></i> {{ _('Changer le mot de passe') }}
@@ -71,6 +88,9 @@
 
                 <hr class="my-4">
 
+                <!-- ======================================================= -->
+                <!-- PRÉFÉRENCES DE LANGUE -->
+                <!-- ======================================================= -->
                 <h5>{{ _('Préférences de langue') }}</h5>
                 <div class="row">
                     <div class="col-md-4">

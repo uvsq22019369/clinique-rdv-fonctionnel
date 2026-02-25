@@ -14,16 +14,23 @@ from models import db, User
 # Initialisation des extensions (SANS l'application)
 bcrypt = Bcrypt()
 login_manager = LoginManager()
-limiter = Limiter(key_func=get_remote_address)
 csrf = CSRFProtect()
 mail = Mail()
 babel = Babel()
 
 # =======================================================
-# SÉLECTEUR DE LANGUE (fonction, pas décorateur)
+# CONFIGURATION DE FLASK-LIMITER AVEC REDIS
+# =======================================================
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri=os.environ.get('REDIS_URL', 'memory://'),
+    default_limits=["200 per day", "50 per hour"]
+)
+
+# =======================================================
+# SÉLECTEUR DE LANGUE
 # =======================================================
 def get_locale():
-    # Priorité : 1. Session, 2. En-tête du navigateur, 3. Français par défaut
     if 'language' in session:
         return session['language']
     return request.accept_languages.best_match(['fr', 'en']) or 'fr'
@@ -50,10 +57,10 @@ def create_app():
     db.init_app(app)
     bcrypt.init_app(app)
     login_manager.init_app(app)
-    limiter.init_app(app)
+    limiter.init_app(app)  # ← Initialisation de Flask-Limiter avec Redis
     csrf.init_app(app)
     mail.init_app(app)
-    babel.init_app(app, locale_selector=get_locale)  # ← CORRIGÉ ICI
+    babel.init_app(app, locale_selector=get_locale)
     
     # =======================================================
     # CONFIGURATION DE FLASK-LOGIN

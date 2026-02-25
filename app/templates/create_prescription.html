@@ -1,23 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}Créer une Ordonnance{% endblock %}
+{% block title %}{{ _('Créer une Ordonnance') }}{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-md-8 mx-auto">
         <div class="card">
             <div class="card-header bg-success text-white">
-                <h4 class="mb-0"><i class="bi bi-file-text"></i> Nouvelle Ordonnance</h4>
+                <h4 class="mb-0"><i class="bi bi-file-text"></i> {{ _('Nouvelle Ordonnance') }}</h4>
             </div>
             <div class="card-body">
                 <!-- Informations du rendez-vous -->
                 <div class="alert alert-info">
-                    <h5>Consultation du {{ rdv.date.strftime('%d/%m/%Y') }} à {{ rdv.heure }}</h5>
+                    <h5>{{ _('Consultation du') }} {{ rdv.date.strftime('%d/%m/%Y') }} {{ _('à') }} {{ rdv.heure }}</h5>
                     <p class="mb-0">
-                        <strong>Patient:</strong> {{ rdv.patient.nom }}<br>
-                        <strong>Téléphone:</strong> {{ rdv.patient.telephone }}<br>
+                        <strong>{{ _('Patient:') }}</strong> {{ rdv.patient.nom }}<br>
+                        <strong>{{ _('Téléphone:') }}</strong> {{ rdv.patient.telephone }}<br>
                         {% if rdv.motif %}
-                            <strong>Motif:</strong> {{ rdv.motif }}
+                            <strong>{{ _('Motif:') }}</strong> {{ rdv.motif }}
                         {% endif %}
                     </p>
                 </div>
@@ -26,24 +26,24 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     
                     <div class="mb-3">
-                        <label for="medicaments" class="form-label">Médicaments prescrits</label>
+                        <label for="medicaments" class="form-label">{{ _('Médicaments prescrits') }}</label>
                         <textarea class="form-control" id="medicaments" name="medicaments" rows="5" 
-                                  placeholder="Ex:&#10;Paracétamol 500mg - 2 fois par jour pendant 5 jours&#10;Amoxicilline 1g - 3 fois par jour pendant 7 jours" required></textarea>
-                        <small class="text-muted">Un médicament par ligne</small>
+                                  placeholder="{{ _('Ex:&#10;Paracétamol 500mg - 2 fois par jour pendant 5 jours&#10;Amoxicilline 1g - 3 fois par jour pendant 7 jours') }}" required></textarea>
+                        <small class="text-muted">{{ _('Un médicament par ligne') }}</small>
                     </div>
                     
                     <div class="mb-3">
-                        <label for="conseils" class="form-label">Conseils (optionnel)</label>
+                        <label for="conseils" class="form-label">{{ _('Conseils (optionnel)') }}</label>
                         <textarea class="form-control" id="conseils" name="conseils" rows="3" 
-                                  placeholder="Ex: Repos, boire beaucoup d'eau, etc."></textarea>
+                                  placeholder="{{ _('Ex: Repos, boire beaucoup d\'eau, etc.') }}"></textarea>
                     </div>
                     
                     <div class="d-flex justify-content-between">
                         <a href="{{ url_for('appointments.dashboard') }}" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Annuler
+                            <i class="bi bi-arrow-left"></i> {{ _('Annuler') }}
                         </a>
                         <button type="submit" class="btn btn-success">
-                            <i class="bi bi-file-pdf"></i> Générer l'ordonnance
+                            <i class="bi bi-file-pdf"></i> {{ _('Générer l\'ordonnance') }}
                         </button>
                     </div>
                 </form>

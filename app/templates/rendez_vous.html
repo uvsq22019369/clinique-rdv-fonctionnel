@@ -1,142 +1,137 @@
 {% extends "base.html" %}
 
-{% block title %}Liste des rendez-vous{% endblock %}
+{% block title %}{{ _('Prendre rendez-vous') }}{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col">
-        <h2><i class="bi bi-calendar-check"></i> Rendez-vous</h2>
-    </div>
-    <div class="col text-end">
-        <a href="{{ url_for('appointments.prendre_rdv') }}" class="btn btn-success">
-            <i class="bi bi-plus-circle"></i> Nouveau RDV
-        </a>
-    </div>
-</div>
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">{{ _('Prendre rendez-vous') }} - {{ clinique.nom }}</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Message d'aide -->
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        {{ _('Les champs marqués d\'une * sont obligatoires.') }}
+                    </div>
 
-<!-- Filtres -->
-<div class="row mb-3">
-    <div class="col-md-3">
-        <input type="text" id="searchInput" class="form-control" placeholder="Rechercher patient...">
-    </div>
-    <div class="col-md-2">
-        <input type="date" id="dateDebut" class="form-control" placeholder="Date début">
-    </div>
-    <div class="col-md-2">
-        <input type="date" id="dateFin" class="form-control" placeholder="Date fin">
-    </div>
-    <div class="col-md-2">
-        <select id="statutFilter" class="form-select">
-            <option value="all">Tous statuts</option>
-            <option value="confirme">Confirmé</option>
-            <option value="termine">Terminé</option>
-            <option value="annule">Annulé</option>
-            <option value="absent">Absent</option>
-        </select>
-    </div>
-    <div class="col-md-3">
-        <select id="medecinFilter" class="form-select">
-            <option value="all">Tous médecins</option>
-            {% for m in medecins %}
-                <option value="{{ m.id }}">Dr. {{ m.nom }}</option>
-            {% endfor %}
-        </select>
-    </div>
-</div>
+                    <form method="POST" action="{{ url_for('public.reserver_rdv_public', slug=slug) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="mb-3">
+                            <label for="medecin_id" class="form-label">{{ _('Médecin') }} *</label>
+                            <select class="form-select" id="medecin_id" name="medecin_id" required>
+                                <option value="">{{ _('Choisissez un médecin...') }}</option>
+                                {% for medecin in medecins %}
+                                <option value="{{ medecin.id }}">Dr. {{ medecin.nom }} - {{ medecin.specialite or _('Généraliste') }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-<!-- Liste des rendez-vous -->
-<div class="card">
-    <div class="card-header bg-info text-white">
-        <h5 class="mb-0">Tous les rendez-vous</h5>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Heure</th>
-                        <th>Patient</th>
-                        <th>Médecin</th>
-                        <th>Motif</th>
-                        <th>Statut</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="rdvTableBody">
-                    <!-- Données chargées via AJAX -->
-                </tbody>
-            </table>
+                        <div class="mb-3">
+                            <label for="date" class="form-label">{{ _('Date') }} *</label>
+                            <input type="date" class="form-control" id="date" name="date" 
+                                   min="{{ now().strftime('%Y-%m-%d') }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="heure" class="form-label">{{ _('Heure') }} *</label>
+                            <select class="form-select" id="heure" name="heure" required disabled>
+                                <option value="">{{ _('Choisissez d\'abord un médecin et une date') }}</option>
+                            </select>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="patient_nom" class="form-label">{{ _('Votre nom') }} *</label>
+                                <input type="text" class="form-control" id="patient_nom" name="patient_nom" 
+                                       value="{{ request.form.patient_nom or '' }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="patient_tel" class="form-label">{{ _('Téléphone') }} *</label>
+                                <input type="tel" class="form-control" id="patient_tel" name="patient_tel" 
+                                       value="{{ request.form.patient_tel or '' }}" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="patient_email" class="form-label">{{ _('Email (optionnel)') }}</label>
+                            <input type="email" class="form-control" id="patient_email" name="patient_email" 
+                                   value="{{ request.form.patient_email or '' }}">
+                            <small class="text-muted">{{ _('Vous recevrez une confirmation par email.') }}</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="motif" class="form-label">{{ _('Motif (optionnel)') }}</label>
+                            <textarea class="form-control" id="motif" name="motif" rows="3">{{ request.form.motif or '' }}</textarea>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-circle"></i> {{ _('Confirmer le rendez-vous') }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
-        
-        <!-- Pagination -->
-        <nav aria-label="Navigation">
-            <ul class="pagination justify-content-center" id="pagination"></ul>
-        </nav>
     </div>
 </div>
 
-{% endblock %}
-
-{% block scripts %}
 <script>
-let currentPage = 1;
-let currentPerPage = 10;
-let currentSearch = '';
-let currentDateDebut = '';
-let currentDateFin = '';
-let currentStatut = 'all';
-let currentMedecin = 'all';
+document.getElementById('medecin_id').addEventListener('change', loadDisponibilites);
+document.getElementById('date').addEventListener('change', loadDisponibilites);
 
-function loadRendezVous() {
-    const url = new URL('{{ url_for("appointments.api_rendez_vous_liste") }}', window.location.origin);
-    url.searchParams.append('page', currentPage);
-    url.searchParams.append('per_page', currentPerPage);
-    url.searchParams.append('search', currentSearch);
-    url.searchParams.append('date_debut', currentDateDebut);
-    url.searchParams.append('date_fin', currentDateFin);
-    url.searchParams.append('statut', currentStatut);
-    url.searchParams.append('medecin', currentMedecin);
-    
-    fetch(url)
+function loadDisponibilites() {
+    const medecin_id = document.getElementById('medecin_id').value;
+    const date = document.getElementById('date').value;
+    const heureSelect = document.getElementById('heure');
+
+    if (!medecin_id || !date) {
+        heureSelect.innerHTML = '<option value="">{{ _('Choisissez médecin et date') }}</option>';
+        heureSelect.disabled = true;
+        return;
+    }
+
+    fetch(`/public/disponibilites/${medecin_id}/${date}`)
         .then(response => response.json())
         .then(data => {
-            displayRendezVous(data.rdvs);
-            setupPagination(data.total, data.pages);
+            heureSelect.innerHTML = '';
+            if (data.creneaux && data.creneaux.length > 0) {
+                heureSelect.innerHTML += '<option value="">{{ _('Choisissez une heure...') }}</option>';
+                data.creneaux.forEach(heure => {
+                    heureSelect.innerHTML += `<option value="${heure}">${heure}</option>`;
+                });
+                heureSelect.disabled = false;
+            } else {
+                heureSelect.innerHTML = '<option value="">{{ _('Aucun créneau disponible') }}</option>';
+                heureSelect.disabled = true;
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            heureSelect.innerHTML = '<option value="">{{ _('Erreur de chargement') }}</option>';
+            heureSelect.disabled = true;
         });
 }
 
-function displayRendezVous(rdvs) {
-    const tbody = document.getElementById('rdvTableBody');
-    tbody.innerHTML = '';
+// Formatage du numéro de téléphone
+document.getElementById('patient_tel').addEventListener('input', function(e) {
+    let tel = e.target.value.replace(/\D/g, '');
+    if (tel.length > 9) tel = tel.slice(0, 9);
     
-    rdvs.forEach(r => {
-        const badgeClass = {
-            'confirme': 'success',
-            'termine': 'primary',
-            'annule': 'danger',
-            'absent': 'warning'
-        }[r.statut] || 'secondary';
-        
-        const row = `
-            <tr>
-                <td>${r.date}</td>
-                <td>${r.heure}</td>
-                <td>${r.patient_nom}</td>
-                <td>Dr. ${r.medecin_nom}</td>
-                <td>${r.motif || '-'}</td>
-                <td><span class="badge bg-${badgeClass}">${r.statut}</span></td>
-                <td>
-                    <a href="#" class="btn btn-sm btn-info" onclick="voirRDV(${r.id})">
-                        <i class="bi bi-eye"></i>
-                    </a>
-                </td>
-            </tr>
-        `;
-        tbody.innerHTML += row;
-    });
-}
-
-// ... (pagination et événements similaires à la page patients)
+    if (tel.length >= 2) {
+        tel = tel.slice(0,2) + ' ' + tel.slice(2);
+    }
+    if (tel.length >= 6) {
+        tel = tel.slice(0,6) + ' ' + tel.slice(6);
+    }
+    if (tel.length >= 9) {
+        tel = tel.slice(0,9) + ' ' + tel.slice(9);
+    }
+    e.target.value = tel;
+});
 </script>
 {% endblock %}
