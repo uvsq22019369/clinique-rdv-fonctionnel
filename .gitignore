@@ -18,3 +18,12 @@ __pycache__/
 *.db
 *.db-journal
 instance/
+
+
+
+venv/
+__pycache__/
+*.pyc
+instance/
+*.db
+.env

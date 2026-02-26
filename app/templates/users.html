@@ -59,22 +59,26 @@
                             </td>
                             <td>
                                 {% if user.actif %}
-                                    <a href="{{ url_for('admin.desactiver_utilisateur', user_id=user.id) }}" 
-                                       class="btn btn-sm btn-warning"
-                                       onclick="return confirm('Désactiver cet utilisateur ?')">
-                                        <i class="bi bi-pause-circle"></i>
-                                    </a>
+                                    <form action="{{ url_for('admin.desactiver_utilisateur', user_id=user.id) }}" method="POST" style="display:inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('Désactiver cet utilisateur ?')">
+                                            <i class="bi bi-pause-circle"></i>
+                                        </button>
+                                    </form>
                                 {% else %}
-                                    <a href="{{ url_for('admin.activer_utilisateur', user_id=user.id) }}" 
-                                       class="btn btn-sm btn-success">
-                                        <i class="bi bi-play-circle"></i>
-                                    </a>
+                                    <form action="{{ url_for('admin.activer_utilisateur', user_id=user.id) }}" method="POST" style="display:inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="bi bi-play-circle"></i>
+                                        </button>
+                                    </form>
                                 {% endif %}
-                                <a href="{{ url_for('admin.reinitialiser_mot_de_passe', user_id=user.id) }}" 
-                                   class="btn btn-sm btn-info"
-                                   onclick="return confirm('Réinitialiser le mot de passe ?')">
-                                    <i class="bi bi-key"></i>
-                                </a>
+                                <form action="{{ url_for('admin.reinitialiser_mot_de_passe', user_id=user.id) }}" method="POST" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-info" onclick="return confirm('Réinitialiser le mot de passe ?')">
+                                        <i class="bi bi-key"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         {% endfor %}

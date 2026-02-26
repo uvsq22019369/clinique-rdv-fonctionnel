@@ -18,13 +18,35 @@ from reportlab.lib.styles import getSampleStyleSheet
 admin_bp = Blueprint('admin', __name__)
 
 # =======================================================
-# GESTION DES CLINIQUES (super_admin uniquement)
+# UTILISATEURS (super_admin)
+# =======================================================
+@admin_bp.route('/utilisateur/<int:user_id>/desactiver', methods=['POST'])
+@login_required
+@super_admin_required
+def desactiver_utilisateur(user_id):
+    user = User.query.get_or_404(user_id)
+    user.actif = False
+    db.session.commit()
+    flash(f"L'utilisateur {user.nom} a été désactivé.", "success")
+    return redirect(url_for('admin.gestion_utilisateurs'))
+
+@admin_bp.route('/utilisateur/<int:user_id>/activer', methods=['POST'])
+@login_required
+@super_admin_required
+def activer_utilisateur(user_id):
+    user = User.query.get_or_404(user_id)
+    user.actif = True
+    db.session.commit()
+    flash(f"L'utilisateur {user.nom} a été activé.", "success")
+    return redirect(url_for('admin.gestion_utilisateurs'))
+
+# =======================================================
+# GESTION DES CLINIQUES (super_admin)
 # =======================================================
 @admin_bp.route('/cliniques')
 @login_required
 @super_admin_required
 def liste_cliniques():
-    """Liste toutes les cliniques (super_admin uniquement)"""
     cliniques = Clinique.query.order_by(Clinique.nom).all()
     return render_template('admin/cliniques.html', cliniques=cliniques)
 
@@ -32,7 +54,6 @@ def liste_cliniques():
 @login_required
 @super_admin_required
 def ajouter_clinique():
-    """Ajouter une nouvelle clinique"""
     nom = request.form.get('nom', '').strip()
     slug = request.form.get('slug', '').strip().lower()
     email = request.form.get('email', '').strip()
@@ -68,17 +89,13 @@ def ajouter_clinique():
 @login_required
 @super_admin_required
 def renouveler_abonnement(clinique_id):
-    """Renouveler l'abonnement d'une clinique (ajouter 1 an)"""
     clinique = Clinique.query.get_or_404(clinique_id)
-    
     if clinique.date_fin_abonnement and clinique.date_fin_abonnement > datetime.now():
         clinique.date_fin_abonnement += timedelta(days=365)
     else:
         clinique.date_fin_abonnement = datetime.now() + timedelta(days=365)
-    
     clinique.abonnement_actif = True
     db.session.commit()
-    
     flash(f'Abonnement de {clinique.nom} renouvelé jusqu\'au {clinique.date_fin_abonnement.strftime("%d/%m/%Y")}', 'success')
     return redirect(url_for('admin.liste_cliniques'))
 
@@ -86,7 +103,6 @@ def renouveler_abonnement(clinique_id):
 @login_required
 @super_admin_required
 def desactiver_clinique(clinique_id):
-    """Désactiver une clinique"""
     clinique = Clinique.query.get_or_404(clinique_id)
     clinique.abonnement_actif = False
     db.session.commit()
@@ -97,7 +113,6 @@ def desactiver_clinique(clinique_id):
 @login_required
 @super_admin_required
 def activer_clinique(clinique_id):
-    """Activer une clinique"""
     clinique = Clinique.query.get_or_404(clinique_id)
     clinique.abonnement_actif = True
     db.session.commit()
