@@ -211,22 +211,24 @@ def activer_secretaire(user_id):
         flash(f'Secrétaire {secretaire.nom} activé(e)', 'success')
     return redirect(url_for('admin.liste_secretaires'))
 
-@admin_bp.route('/secretaires/reinitialiser-mot-de-passe/<int:user_id>')
+@admin_bp.route('/secretaires/reinitialiser-mot-de-passe/<int:user_id>', methods=['POST'])
 @login_required
 @admin_clinique_required
 def reinitialiser_mdp_secretaire(user_id):
-    """Réinitialiser mot de passe d'un secrétaire"""
+    """Réinitialiser le mot de passe d'un secrétaire (POST uniquement)"""
     secretaire = User.query.get_or_404(user_id)
     
+    # Vérification des droits
     if current_user.role != 'super_admin' and secretaire.clinique_id != current_user.clinique_id:
         flash('Vous ne pouvez pas modifier ce compte', 'danger')
         return redirect(url_for('admin.liste_secretaires'))
     
-    if secretaire.role == 'secretaire':
-        temp_password = secrets.token_urlsafe(8)
-        secretaire.mot_de_passe_hash = bcrypt.generate_password_hash(temp_password).decode('utf-8')
-        db.session.commit()
-        flash(f'Nouveau mot de passe pour {secretaire.nom}: {temp_password}', 'info')
+    # Génération d'un nouveau mot de passe temporaire
+    temp_password = secrets.token_urlsafe(8)
+    secretaire.mot_de_passe_hash = bcrypt.generate_password_hash(temp_password).decode('utf-8')
+    db.session.commit()
+    
+    flash(f'✅ Nouveau mot de passe pour {secretaire.nom}: {temp_password}', 'info')
     return redirect(url_for('admin.liste_secretaires'))
 
 # =======================================================
@@ -338,22 +340,24 @@ def activer_medecin(user_id):
         flash(f'Médecin {medecin.nom} activé', 'success')
     return redirect(url_for('admin.liste_medecins'))
 
-@admin_bp.route('/medecins/reinitialiser-mot-de-passe/<int:user_id>')
+@admin_bp.route('/medecins/reinitialiser-mot-de-passe/<int:user_id>', methods=['POST'])
 @login_required
 @admin_clinique_required
 def reinitialiser_mot_de_passe(user_id):
-    """Générer un nouveau mot de passe temporaire"""
+    """Réinitialiser le mot de passe d'un médecin (POST uniquement)"""
     medecin = User.query.get_or_404(user_id)
     
+    # Vérification des droits
     if current_user.role != 'super_admin' and medecin.clinique_id != current_user.clinique_id:
         flash('Vous ne pouvez pas modifier ce médecin', 'danger')
         return redirect(url_for('admin.liste_medecins'))
     
-    if medecin.role == 'medecin':
-        temp_password = secrets.token_urlsafe(8)
-        medecin.mot_de_passe_hash = bcrypt.generate_password_hash(temp_password).decode('utf-8')
-        db.session.commit()
-        flash(f'Nouveau mot de passe pour {medecin.nom}: {temp_password}', 'info')
+    # Génération d'un nouveau mot de passe temporaire
+    temp_password = secrets.token_urlsafe(8)
+    medecin.mot_de_passe_hash = bcrypt.generate_password_hash(temp_password).decode('utf-8')
+    db.session.commit()
+    
+    flash(f'✅ Nouveau mot de passe pour {medecin.nom}: {temp_password}', 'info')
     return redirect(url_for('admin.liste_medecins'))
 
 # =======================================================
