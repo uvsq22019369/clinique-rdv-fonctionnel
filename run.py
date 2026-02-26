@@ -1,26 +1,26 @@
 # run.py
-import logging
 from app import create_app
+import logging
 from flask import Flask
 
-# ========================
-# Configuration du logger
-# ========================
-# DEBUG pour tout voir dans la console
+# =========================
+# CRÉATION DE L'APPLICATION
+# =========================
+app = create_app()
+
+# =========================
+# CONFIGURATION DU LOGGER
+# =========================
+# DEBUG pour tout loguer (affiche les erreurs et les infos)
 logging.basicConfig(
-    level=logging.DEBUG,  # Niveau DEBUG pour voir tous les logs
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# ========================
-# Création de l'application
-# ========================
-app = create_app()
-
-# ========================
-# Gestion globale des exceptions
-# ========================
+# =========================
+# GESTION GLOBALE DES EXCEPTIONS
+# =========================
 @app.errorhandler(Exception)
 def handle_exception(e):
     # Log complet de l'erreur avec stack trace
@@ -28,25 +28,10 @@ def handle_exception(e):
     # Retourne un message générique au client
     return "Internal Server Error", 500
 
-# ========================
-# Exemple de log pour test utilisateurs
-# ========================
-@app.before_request
-def log_user_request():
-    from flask_login import current_user
-    try:
-        if current_user.is_authenticated:
-            logger.debug(f"Utilisateur connecté: ID={current_user.id}, Email={current_user.email}, Role={current_user.role}")
-        else:
-            logger.debug("Utilisateur non connecté accédant à la page")
-    except Exception as e:
-        logger.warning(f"Impossible de récupérer current_user: {e}")
-
-# ========================
-# Lancement de l'application
-# ========================
+# =========================
+# LANCEMENT DE L'APPLICATION
+# =========================
 if __name__ == '__main__':
-    # debug=True pour développement local
-    # host='0.0.0.0' pour que le serveur soit accessible depuis l'extérieur
-    logger.info("🔹 Démarrage de l'application Flask...")
+    # debug=True permet de voir les erreurs dans le navigateur et la console
+    # host='0.0.0.0' permet d'accéder depuis l'extérieur (Railway, Docker, etc.)
     app.run(debug=True, host='0.0.0.0', port=5000)
