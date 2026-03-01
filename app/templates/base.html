@@ -61,6 +61,8 @@
                             <span class="role-badge">{{ _('Médecin') }}</span>
                         {% elif current_user.role == 'secretaire' %}
                             <span class="role-badge">{{ _('Secrétaire') }}</span>
+                        {% elif current_user.role == 'admin_clinique' %}
+                            <span class="role-badge">{{ _('Admin Clinique') }}</span>
                         {% elif current_user.role == 'admin' or current_user.role == 'super_admin' %}
                             <span class="role-badge">{{ _('Admin') }}</span>
                         {% endif %}
@@ -102,8 +104,7 @@
                     </a>
                 </li>
 
-
-               <!-- Prescriptions -->
+                <!-- Prescriptions -->
                 <li class="nav-item {% if request.endpoint == 'admin.liste_prescriptions' %}active{% endif %}">
                     <a href="{{ url_for('admin.liste_prescriptions') }}" class="nav-link">
                         <i class="bi bi-file-text"></i>
@@ -111,11 +112,7 @@
                     </a>
                 </li>
 
-
-
-
-
-                <!-- 🔥 NOUVEAU : Lien pour les médecins (gestion des créneaux) -->
+                <!-- Lien pour les médecins (gestion des créneaux) -->
                 {% if current_user.role == 'medecin' %}
                 <li class="nav-item {% if request.endpoint == 'appointments.gerer_creneaux' %}active{% endif %}">
                     <a href="{{ url_for('appointments.gerer_creneaux') }}" class="nav-link">
@@ -125,7 +122,8 @@
                 </li>
                 {% endif %}
 
-                {% if current_user.role == 'admin' or current_user.role == 'super_admin' %}
+                <!-- 🔥 CORRECTION: Admin clinique peut voir la section ADMINISTRATION -->
+                {% if current_user.role == 'admin' or current_user.role == 'super_admin' or current_user.role == 'admin_clinique' %}
                 <li class="nav-section">{{ _('ADMINISTRATION') }}</li>
                 
                 <!-- Médecins -->
@@ -144,23 +142,27 @@
                     </a>
                 </li>
 
-                <!-- Cliniques -->
+                <!-- Cliniques (uniquement pour super_admin) -->
+                {% if current_user.role == 'super_admin' %}
                 <li class="nav-item {% if request.endpoint == 'admin.liste_cliniques' %}active{% endif %}">
                     <a href="{{ url_for('admin.liste_cliniques') }}" class="nav-link">
                         <i class="bi bi-building"></i>
                         <span>{{ _('Cliniques') }}</span>
                     </a>
                 </li>
+                {% endif %}
 
-                <!-- Utilisateurs -->
+                <!-- Utilisateurs (super_admin seulement) -->
+                {% if current_user.role == 'super_admin' %}
                 <li class="nav-item {% if request.endpoint == 'admin.gestion_utilisateurs' %}active{% endif %}">
                     <a href="{{ url_for('admin.gestion_utilisateurs') }}" class="nav-link">
                         <i class="bi bi-people-fill"></i>
                         <span>{{ _('Utilisateurs') }}</span>
                     </a>
                 </li>
+                {% endif %}
 
-                <!-- Statistiques -->
+                <!-- Statistiques (accessible à admin et admin_clinique) -->
                 <li class="nav-item {% if request.endpoint == 'admin.statistiques' %}active{% endif %}">
                     <a href="{{ url_for('admin.statistiques') }}" class="nav-link">
                         <i class="bi bi-graph-up"></i>
@@ -168,7 +170,7 @@
                     </a>
                 </li>
 
-                <!-- Export -->
+                <!-- Export (accessible à admin et admin_clinique) -->
                 <li class="nav-item {% if request.endpoint == 'admin.export_patients_csv' %}active{% endif %}">
                     <a href="{{ url_for('admin.export_patients_csv') }}" class="nav-link">
                         <i class="bi bi-download"></i>
