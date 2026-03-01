@@ -42,10 +42,10 @@
     </div>
 </div>
 
-<!-- Message de débogage (à supprimer plus tard) -->
+<!-- Message d'information -->
 <div class="alert alert-info">
     <strong>Info:</strong> {{ disponibilites|length }} créneau(x) trouvé(s)
-    {% if medecin_id %} pour le médecin #{{ medecin_id }}{% endif %}
+    {% if medecin_id %} pour ce médecin{% endif %}
 </div>
 
 <!-- Liste des créneaux -->
@@ -120,7 +120,7 @@
             </div>
             <form method="POST" action="{{ url_for('appointments.ajouter_creneaux') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <!-- 🔥 Champ caché pour l'ID du médecin -->
+                <!-- Champ caché pour l'ID du médecin -->
                 <input type="hidden" name="medecin_id" value="{{ medecin_id or current_user.id }}">
                 
                 <div class="modal-body">
@@ -164,7 +164,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const dateInput = document.getElementById('date');
-    if (dateInput && !dateInput.min) {
+    if (dateInput) {
         const today = new Date().toISOString().split('T')[0];
         dateInput.min = today;
     }
