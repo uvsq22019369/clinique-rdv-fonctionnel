@@ -131,7 +131,6 @@ def liste_secretaires():
     if current_user.role == 'super_admin':
         secretaires = User.query.filter_by(role='secretaire').order_by(User.nom).all()
     else:
-        # Admin clinique voit les secrétaires de SA clinique
         secretaires = User.query.filter_by(
             role='secretaire',
             clinique_id=current_user.clinique_id
@@ -147,7 +146,6 @@ def ajouter_secretaire():
     email = request.form.get('email', '').strip().lower()
     telephone = request.form.get('telephone', '').strip()
     
-    # Gestion de la clinique
     if current_user.role == 'super_admin':
         clinique_id = request.form.get('clinique_id')
         if not clinique_id:
@@ -435,7 +433,6 @@ def statistiques():
         rdv_absent = Appointment.query.filter_by(statut='absent').count()
         
     elif current_user.role == 'admin_clinique':
-        # Admin clinique voit les stats de SA clinique
         clinique_id = current_user.clinique_id
         
         stats = {
@@ -639,7 +636,6 @@ def liste_medecins():
         medecins = User.query.filter_by(role='medecin').all()
         cliniques = Clinique.query.all()
     else:
-        # Admin clinique voit les médecins de SA clinique
         medecins = User.query.filter_by(role='medecin', clinique_id=current_user.clinique_id).all()
         cliniques = []
     
@@ -652,7 +648,9 @@ def liste_medecins():
         m.experience = 8
         m.couleur = colors[hash(m.nom) % len(colors)]
     
-    return render_template('admin/medecins.html', medecins=medecins, cliniques=cliniques)
+    return render_template('admin/medecins.html', 
+                         medecins=medecins, 
+                         cliniques=cliniques)
 
 
 @admin_bp.route('/medecins/ajouter', methods=['POST'])
@@ -669,14 +667,12 @@ def ajouter_medecin():
     telephone = request.form.get('telephone', '').strip()
     specialite = request.form.get('specialite', '').strip()
     
-    # Gestion de la clinique pour super_admin et admin_clinique
     if current_user.role == 'super_admin':
         clinique_id = request.form.get('clinique_id')
         if not clinique_id:
             flash('Veuillez sélectionner une clinique', 'danger')
             return redirect(url_for('admin.liste_medecins'))
     else:
-        # Admin clinique utilise sa propre clinique
         clinique_id = current_user.clinique_id
     
     if not all([prenom, nom, email]):

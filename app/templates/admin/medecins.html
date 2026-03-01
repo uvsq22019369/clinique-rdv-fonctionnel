@@ -2,6 +2,17 @@
 
 {% block title %}{{ _('Gestion des médecins') }}{% endblock %}
 
+<!-- 🔥 STYLE TEMPORAIRE POUR TESTER LE BOUTON -->
+<style>
+.btn-success {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background-color: #28a745 !important;
+    color: white !important;
+}
+</style>
+
 {% block content %}
 <div class="row mb-4">
     <div class="col">
@@ -166,7 +177,7 @@
                             <td class="align-middle">{{ m.telephone or '-' }}</td>
                             <td class="align-middle">{{ m.specialite or '-' }}</td>
                             
-                            <!-- ✅ Statistiques -->
+                            <!-- Statistiques -->
                             <td class="align-middle">
                                 <span class="badge bg-primary">{{ m.nb_patients or 0 }}</span>
                             </td>
@@ -195,7 +206,7 @@
                             </td>
                             <td class="align-middle">{{ m.date_inscription.strftime('%d/%m/%Y') }}</td>
                             
-                            <!-- 🔥 COLONNE ACTIONS AVEC TOUS LES BOUTONS -->
+                            <!-- COLONNE ACTIONS AVEC TOUS LES BOUTONS -->
                             <td class="align-middle">
                                 <div class="d-flex gap-1">
                                     {% if m.actif %}
@@ -211,21 +222,21 @@
                                         </a>
                                     {% endif %}
                                     
-                                    <!-- 📅 Bouton Prendre RDV -->
+                                    <!-- Bouton Prendre RDV -->
                                     <a href="{{ url_for('appointments.prendre_rdv', medecin_id=m.id) }}" 
                                        class="btn btn-sm btn-primary" 
                                        title="{{ _('Prendre rendez-vous avec ce médecin') }}">
                                         <i class="bi bi-calendar-plus"></i>
                                     </a>
                                     
-                                    <!-- ⏰ Bouton Gestion des disponibilités -->
+                                    <!-- Bouton Gestion des disponibilités -->
                                     <a href="{{ url_for('appointments.gerer_creneaux', medecin_id=m.id) }}" 
                                        class="btn btn-sm btn-info" 
                                        title="{{ _('Gérer les disponibilités (créneaux)') }}">
                                         <i class="bi bi-clock-history"></i>
                                     </a>
                                     
-                                    <!-- 🔑 Réinitialisation mot de passe -->
+                                    <!-- Réinitialisation mot de passe -->
                                     <form method="POST" action="{{ url_for('admin.reinitialiser_mdp_medecin', user_id=m.id) }}" 
                                           style="display: inline;" 
                                           onsubmit="return confirm('⚠️ {{ _('Réinitialiser le mot de passe de') }} {{ m.prenom }} {{ m.nom }} ?\n\n{{ _('Un nouveau mot de passe temporaire sera généré et affiché.') }}')">
@@ -250,7 +261,7 @@
     </div>
 </div>
 
-<!-- 🔥 STYLES POUR L'UPLOAD D'AVATAR -->
+<!-- STYLES POUR L'UPLOAD D'AVATAR -->
 <style>
 .avatar-upload {
     display: flex;
@@ -295,7 +306,7 @@
 }
 </style>
 
-<!-- 🔥 SCRIPT POUR LA PREVIEW DE L'AVATAR -->
+<!-- SCRIPT POUR LA PREVIEW DE L'AVATAR -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const avatarInput = document.getElementById('avatar');
