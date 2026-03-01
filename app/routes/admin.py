@@ -124,7 +124,6 @@ def activer_clinique(clinique_id):
 # =======================================================
 @admin_bp.route('/secretaires')
 @login_required
-@admin_clinique_required
 def liste_secretaires():
     """Liste les secrétaires de la clinique"""
     cliniques = Clinique.query.all() if current_user.role == 'super_admin' else []
@@ -132,6 +131,7 @@ def liste_secretaires():
     if current_user.role == 'super_admin':
         secretaires = User.query.filter_by(role='secretaire').order_by(User.nom).all()
     else:
+        # Admin clinique voit les secrétaires de SA clinique
         secretaires = User.query.filter_by(
             role='secretaire',
             clinique_id=current_user.clinique_id
@@ -141,13 +141,13 @@ def liste_secretaires():
 
 @admin_bp.route('/secretaires/ajouter', methods=['POST'])
 @login_required
-@admin_clinique_required
 def ajouter_secretaire():
     """Ajouter un secrétaire"""
     nom = request.form.get('nom', '').strip()
     email = request.form.get('email', '').strip().lower()
     telephone = request.form.get('telephone', '').strip()
     
+    # Gestion de la clinique
     if current_user.role == 'super_admin':
         clinique_id = request.form.get('clinique_id')
         if not clinique_id:
@@ -194,7 +194,6 @@ def ajouter_secretaire():
 
 @admin_bp.route('/secretaires/desactiver/<int:user_id>')
 @login_required
-@admin_clinique_required
 def desactiver_secretaire(user_id):
     """Désactiver un secrétaire"""
     secretaire = User.query.get_or_404(user_id)
@@ -211,7 +210,6 @@ def desactiver_secretaire(user_id):
 
 @admin_bp.route('/secretaires/activer/<int:user_id>')
 @login_required
-@admin_clinique_required
 def activer_secretaire(user_id):
     """Réactiver un secrétaire"""
     secretaire = User.query.get_or_404(user_id)
@@ -228,17 +226,14 @@ def activer_secretaire(user_id):
 
 @admin_bp.route('/secretaires/reinitialiser-mot-de-passe/<int:user_id>', methods=['POST'])
 @login_required
-@admin_clinique_required
 def reinitialiser_mdp_secretaire(user_id):
-    """Réinitialiser le mot de passe d'un secrétaire (POST uniquement)"""
+    """Réinitialiser le mot de passe d'un secrétaire"""
     secretaire = User.query.get_or_404(user_id)
     
-    # Vérification des droits
     if current_user.role != 'super_admin' and secretaire.clinique_id != current_user.clinique_id:
         flash('Vous ne pouvez pas modifier ce compte', 'danger')
         return redirect(url_for('admin.liste_secretaires'))
     
-    # Génération d'un nouveau mot de passe temporaire
     temp_password = secrets.token_urlsafe(8)
     secretaire.mot_de_passe_hash = bcrypt.generate_password_hash(temp_password).decode('utf-8')
     db.session.commit()
@@ -411,7 +406,6 @@ def telecharger_pdf(prescription_id):
 # =======================================================
 @admin_bp.route('/statistiques')
 @login_required
-@admin_clinique_required
 def statistiques():
     """Statistiques globales (filtrées par clinique)"""
     today = datetime.now().date()
@@ -440,7 +434,8 @@ def statistiques():
         rdv_annule = Appointment.query.filter_by(statut='annule').count()
         rdv_absent = Appointment.query.filter_by(statut='absent').count()
         
-    else:
+    elif current_user.role == 'admin_clinique':
+        # Admin clinique voit les stats de SA clinique
         clinique_id = current_user.clinique_id
         
         stats = {
@@ -466,6 +461,9 @@ def statistiques():
         rdv_termine = Appointment.query.filter_by(clinique_id=clinique_id, statut='termine').count()
         rdv_annule = Appointment.query.filter_by(clinique_id=clinique_id, statut='annule').count()
         rdv_absent = Appointment.query.filter_by(clinique_id=clinique_id, statut='absent').count()
+    else:
+        flash('Accès non autorisé', 'danger')
+        return redirect(url_for('appointments.dashboard'))
     
     return render_template('admin/statistiques.html', 
                          stats=stats,
@@ -479,7 +477,6 @@ def statistiques():
 # =======================================================
 @admin_bp.route('/export/patients/csv')
 @login_required
-@admin_clinique_required
 def export_patients_csv():
     """Exporter la liste des patients au format CSV"""
     if current_user.role == 'super_admin':
@@ -509,7 +506,6 @@ def export_patients_csv():
 
 @admin_bp.route('/export/patients/excel')
 @login_required
-@admin_clinique_required
 def export_patients_excel():
     """Exporter la liste des patients au format Excel"""
     if current_user.role == 'super_admin':
@@ -543,7 +539,6 @@ def export_patients_excel():
 
 @admin_bp.route('/export/rendez-vous/pdf')
 @login_required
-@admin_clinique_required
 def export_rendez_vous_pdf():
     """Exporter la liste des rendez-vous au format PDF"""
     if current_user.role == 'super_admin':
@@ -630,7 +625,6 @@ def export_statistiques():
     output.headers["Content-type"] = "text/csv"
     return output
 
-
 # =======================================================
 # GESTION DES MÉDECINS (COMPLÈTE)
 # =======================================================
@@ -643,12 +637,12 @@ def liste_medecins():
     
     if current_user.role == 'super_admin':
         medecins = User.query.filter_by(role='medecin').all()
-        cliniques = Clinique.query.all()  # Pour le select dans le modal
+        cliniques = Clinique.query.all()
     else:
+        # Admin clinique voit les médecins de SA clinique
         medecins = User.query.filter_by(role='medecin', clinique_id=current_user.clinique_id).all()
         cliniques = []
     
-    # Ajouter des statistiques pour chaque médecin
     today = datetime.now().date()
     colors = ['#4e73df', '#1cc88a', '#e74a3b', '#f6c23e', '#36b9cc', '#5a5c69']
     
@@ -675,29 +669,27 @@ def ajouter_medecin():
     telephone = request.form.get('telephone', '').strip()
     specialite = request.form.get('specialite', '').strip()
     
-    # Gestion de la clinique pour super_admin
+    # Gestion de la clinique pour super_admin et admin_clinique
     if current_user.role == 'super_admin':
         clinique_id = request.form.get('clinique_id')
         if not clinique_id:
             flash('Veuillez sélectionner une clinique', 'danger')
             return redirect(url_for('admin.liste_medecins'))
     else:
+        # Admin clinique utilise sa propre clinique
         clinique_id = current_user.clinique_id
     
     if not all([prenom, nom, email]):
         flash('Les champs obligatoires doivent être remplis', 'danger')
         return redirect(url_for('admin.liste_medecins'))
     
-    # Vérifier si l'email existe déjà
     if User.query.filter_by(email=email).first():
         flash('Cet email est déjà utilisé', 'danger')
         return redirect(url_for('admin.liste_medecins'))
     
-    # 🔥 GÉNÉRER UN MOT DE PASSE TEMPORAIRE
     temp_password = secrets.token_urlsafe(8)
     hashed_password = bcrypt.generate_password_hash(temp_password).decode('utf-8')
     
-    # Gérer l'avatar
     avatar_filename = None
     if 'avatar' in request.files:
         file = request.files['avatar']
@@ -709,12 +701,11 @@ def ajouter_medecin():
             os.makedirs(upload_folder, exist_ok=True)
             file.save(os.path.join(upload_folder, avatar_filename))
     
-    # Créer le médecin
     medecin = User(
         prenom=prenom,
         nom=nom,
         email=email,
-        mot_de_passe_hash=hashed_password,  # ← Maintenant avec le hash
+        mot_de_passe_hash=hashed_password,
         telephone=telephone,
         role='medecin',
         specialite=specialite,
@@ -768,12 +759,10 @@ def reinitialiser_mdp_medecin(user_id):
     """Réinitialiser le mot de passe d'un médecin"""
     medecin = User.query.get_or_404(user_id)
     
-    # Vérification des droits
     if current_user.role != 'super_admin' and medecin.clinique_id != current_user.clinique_id:
         flash('Vous ne pouvez pas modifier ce compte', 'danger')
         return redirect(url_for('admin.liste_medecins'))
     
-    # Génération d'un nouveau mot de passe temporaire
     temp_password = secrets.token_urlsafe(8)
     medecin.mot_de_passe_hash = bcrypt.generate_password_hash(temp_password).decode('utf-8')
     db.session.commit()
