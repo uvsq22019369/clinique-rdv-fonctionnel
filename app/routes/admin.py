@@ -247,135 +247,6 @@ def reinitialiser_mdp_secretaire(user_id):
     return redirect(url_for('admin.liste_secretaires'))
 
 # =======================================================
-# GESTION DES MÉDECINS
-# =======================================================
-@admin_bp.route('/medecins')
-@login_required
-@admin_clinique_required
-def liste_medecins():
-    """Liste tous les médecins de la clinique"""
-    cliniques = Clinique.query.all() if current_user.role == 'super_admin' else []
-    
-    if current_user.role == 'super_admin':
-        medecins = User.query.filter_by(role='medecin').order_by(User.nom).all()
-    else:
-        medecins = User.query.filter_by(
-            role='medecin',
-            clinique_id=current_user.clinique_id
-        ).order_by(User.nom).all()
-    
-    return render_template('admin/medecins.html', medecins=medecins, cliniques=cliniques)
-
-@admin_bp.route('/medecins/ajouter', methods=['POST'])
-@login_required
-@admin_clinique_required
-def ajouter_medecin():
-    """L'admin ajoute un nouveau médecin"""
-    nom = request.form.get('nom', '').strip()
-    email = request.form.get('email', '').strip().lower()
-    telephone = request.form.get('telephone', '').strip()
-    specialite = request.form.get('specialite', '').strip()
-    
-    if current_user.role == 'super_admin':
-        clinique_id = request.form.get('clinique_id')
-        if not clinique_id:
-            flash('Veuillez sélectionner une clinique', 'danger')
-            return redirect(url_for('admin.liste_medecins'))
-    else:
-        clinique_id = current_user.clinique_id
-    
-    errors = []
-    if not nom or len(nom) < 2:
-        errors.append("Le nom doit contenir au moins 2 caractères")
-    if not email or '@' not in email:
-        errors.append("Email invalide")
-    if not telephone or len(telephone) < 9:
-        errors.append("Numéro de téléphone invalide")
-    
-    if User.query.filter_by(email=email).first():
-        errors.append("Cet email est déjà utilisé")
-    
-    if errors:
-        for error in errors:
-            flash(error, 'danger')
-        return redirect(url_for('admin.liste_medecins'))
-    
-    temp_password = secrets.token_urlsafe(8)
-    hashed_password = bcrypt.generate_password_hash(temp_password).decode('utf-8')
-    
-    medecin = User(
-        nom=nom,
-        email=email,
-        mot_de_passe_hash=hashed_password,
-        telephone=telephone,
-        specialite=specialite,
-        role='medecin',
-        actif=True,
-        clinique_id=clinique_id
-    )
-    
-    db.session.add(medecin)
-    db.session.commit()
-    
-    flash(f'✅ Médecin {nom} ajouté avec succès!', 'success')
-    flash(f'📧 Email: {email} | 🔑 Mot de passe temporaire: {temp_password}', 'info')
-    return redirect(url_for('admin.liste_medecins'))
-
-@admin_bp.route('/medecins/desactiver/<int:user_id>')
-@login_required
-@admin_clinique_required
-def desactiver_medecin(user_id):
-    """Désactiver un médecin"""
-    medecin = User.query.get_or_404(user_id)
-    
-    if current_user.role != 'super_admin' and medecin.clinique_id != current_user.clinique_id:
-        flash('Vous ne pouvez pas modifier ce médecin', 'danger')
-        return redirect(url_for('admin.liste_medecins'))
-    
-    if medecin.role == 'medecin':
-        medecin.actif = False
-        db.session.commit()
-        flash(f'Médecin {medecin.nom} désactivé', 'warning')
-    return redirect(url_for('admin.liste_medecins'))
-
-@admin_bp.route('/medecins/activer/<int:user_id>')
-@login_required
-@admin_clinique_required
-def activer_medecin(user_id):
-    """Réactiver un médecin"""
-    medecin = User.query.get_or_404(user_id)
-    
-    if current_user.role != 'super_admin' and medecin.clinique_id != current_user.clinique_id:
-        flash('Vous ne pouvez pas modifier ce médecin', 'danger')
-        return redirect(url_for('admin.liste_medecins'))
-    
-    if medecin.role == 'medecin':
-        medecin.actif = True
-        db.session.commit()
-        flash(f'Médecin {medecin.nom} activé', 'success')
-    return redirect(url_for('admin.liste_medecins'))
-
-@admin_bp.route('/medecins/reinitialiser-mot-de-passe/<int:user_id>', methods=['POST'])
-@login_required
-@admin_clinique_required
-def reinitialiser_mot_de_passe(user_id):
-    """Réinitialiser le mot de passe d'un médecin (POST uniquement)"""
-    medecin = User.query.get_or_404(user_id)
-    
-    # Vérification des droits
-    if current_user.role != 'super_admin' and medecin.clinique_id != current_user.clinique_id:
-        flash('Vous ne pouvez pas modifier ce médecin', 'danger')
-        return redirect(url_for('admin.liste_medecins'))
-    
-    # Génération d'un nouveau mot de passe temporaire
-    temp_password = secrets.token_urlsafe(8)
-    medecin.mot_de_passe_hash = bcrypt.generate_password_hash(temp_password).decode('utf-8')
-    db.session.commit()
-    
-    flash(f'✅ Nouveau mot de passe pour {medecin.nom}: {temp_password}', 'info')
-    return redirect(url_for('admin.liste_medecins'))
-
-# =======================================================
 # GESTION DES UTILISATEURS
 # =======================================================
 @admin_bp.route('/utilisateurs')
@@ -758,3 +629,174 @@ def export_statistiques():
     output.headers["Content-Disposition"] = "attachment; filename=statistiques.csv"
     output.headers["Content-type"] = "text/csv"
     return output
+
+
+# =======================================================
+# GESTION DES MÉDECINS (COMPLÈTE)
+# =======================================================
+@admin_bp.route('/medecins')
+@login_required
+def liste_medecins():
+    """Liste des médecins avec leurs statistiques"""
+    from datetime import datetime
+    from models import Appointment, Clinique
+    
+    if current_user.role == 'super_admin':
+        medecins = User.query.filter_by(role='medecin').all()
+        cliniques = Clinique.query.all()  # Pour le select dans le modal
+    else:
+        medecins = User.query.filter_by(role='medecin', clinique_id=current_user.clinique_id).all()
+        cliniques = []
+    
+    # Ajouter des statistiques pour chaque médecin
+    today = datetime.now().date()
+    colors = ['#4e73df', '#1cc88a', '#e74a3b', '#f6c23e', '#36b9cc', '#5a5c69']
+    
+    for m in medecins:
+        m.nb_patients = Appointment.query.filter_by(medecin_id=m.id).distinct(Appointment.patient_id).count()
+        m.nb_rdv_aujourdhui = Appointment.query.filter_by(medecin_id=m.id, date=today).count()
+        m.experience = 8
+        m.couleur = colors[hash(m.nom) % len(colors)]
+    
+    return render_template('admin/medecins.html', medecins=medecins, cliniques=cliniques)
+
+
+@admin_bp.route('/medecins/ajouter', methods=['POST'])
+@login_required
+def ajouter_medecin():
+    """Ajouter un nouveau médecin"""
+    from werkzeug.utils import secure_filename
+    import os
+    import time
+    
+    prenom = request.form.get('prenom', '').strip()
+    nom = request.form.get('nom', '').strip()
+    email = request.form.get('email', '').strip()
+    telephone = request.form.get('telephone', '').strip()
+    specialite = request.form.get('specialite', '').strip()
+    
+    # Gestion de la clinique pour super_admin
+    if current_user.role == 'super_admin':
+        clinique_id = request.form.get('clinique_id')
+        if not clinique_id:
+            flash('Veuillez sélectionner une clinique', 'danger')
+            return redirect(url_for('admin.liste_medecins'))
+    else:
+        clinique_id = current_user.clinique_id
+    
+    if not all([prenom, nom, email]):
+        flash('Les champs obligatoires doivent être remplis', 'danger')
+        return redirect(url_for('admin.liste_medecins'))
+    
+    # Vérifier si l'email existe déjà
+    if User.query.filter_by(email=email).first():
+        flash('Cet email est déjà utilisé', 'danger')
+        return redirect(url_for('admin.liste_medecins'))
+    
+    # 🔥 GÉNÉRER UN MOT DE PASSE TEMPORAIRE
+    temp_password = secrets.token_urlsafe(8)
+    hashed_password = bcrypt.generate_password_hash(temp_password).decode('utf-8')
+    
+    # Gérer l'avatar
+    avatar_filename = None
+    if 'avatar' in request.files:
+        file = request.files['avatar']
+        if file and file.filename:
+            ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'jpg'
+            avatar_filename = f"medecin_{int(time.time())}.{ext}"
+            
+            upload_folder = os.path.join('app', 'static', 'uploads', 'avatars')
+            os.makedirs(upload_folder, exist_ok=True)
+            file.save(os.path.join(upload_folder, avatar_filename))
+    
+    # Créer le médecin
+    medecin = User(
+        prenom=prenom,
+        nom=nom,
+        email=email,
+        mot_de_passe_hash=hashed_password,  # ← Maintenant avec le hash
+        telephone=telephone,
+        role='medecin',
+        specialite=specialite,
+        avatar=avatar_filename,
+        clinique_id=clinique_id
+    )
+    
+    db.session.add(medecin)
+    db.session.commit()
+    
+    flash(f'✅ Médecin Dr. {prenom} {nom} ajouté avec succès!', 'success')
+    flash(f'📧 Email: {email} | 🔑 Mot de passe temporaire: {temp_password}', 'info')
+    return redirect(url_for('admin.liste_medecins'))
+
+
+@admin_bp.route('/medecins/desactiver/<int:user_id>')
+@login_required
+def desactiver_medecin(user_id):
+    """Désactiver un médecin"""
+    medecin = User.query.get_or_404(user_id)
+    
+    if current_user.role != 'super_admin' and medecin.clinique_id != current_user.clinique_id:
+        flash('Vous ne pouvez pas modifier ce compte', 'danger')
+        return redirect(url_for('admin.liste_medecins'))
+    
+    medecin.actif = False
+    db.session.commit()
+    flash(f'Médecin {medecin.prenom} {medecin.nom} désactivé', 'warning')
+    return redirect(url_for('admin.liste_medecins'))
+
+
+@admin_bp.route('/medecins/activer/<int:user_id>')
+@login_required
+def activer_medecin(user_id):
+    """Activer un médecin"""
+    medecin = User.query.get_or_404(user_id)
+    
+    if current_user.role != 'super_admin' and medecin.clinique_id != current_user.clinique_id:
+        flash('Vous ne pouvez pas modifier ce compte', 'danger')
+        return redirect(url_for('admin.liste_medecins'))
+    
+    medecin.actif = True
+    db.session.commit()
+    flash(f'Médecin {medecin.prenom} {medecin.nom} activé', 'success')
+    return redirect(url_for('admin.liste_medecins'))
+
+
+@admin_bp.route('/medecins/reinitialiser-mot-de-passe/<int:user_id>', methods=['POST'])
+@login_required
+def reinitialiser_mdp_medecin(user_id):
+    """Réinitialiser le mot de passe d'un médecin"""
+    medecin = User.query.get_or_404(user_id)
+    
+    # Vérification des droits
+    if current_user.role != 'super_admin' and medecin.clinique_id != current_user.clinique_id:
+        flash('Vous ne pouvez pas modifier ce compte', 'danger')
+        return redirect(url_for('admin.liste_medecins'))
+    
+    # Génération d'un nouveau mot de passe temporaire
+    temp_password = secrets.token_urlsafe(8)
+    medecin.mot_de_passe_hash = bcrypt.generate_password_hash(temp_password).decode('utf-8')
+    db.session.commit()
+    
+    flash(f'✅ Nouveau mot de passe pour Dr. {medecin.prenom} {medecin.nom}: {temp_password}', 'info')
+    return redirect(url_for('admin.liste_medecins'))
+
+
+@admin_bp.route('/medecin/<int:medecin_id>')
+@login_required
+def voir_medecin(medecin_id):
+    """Voir le détail d'un médecin"""
+    medecin = User.query.get_or_404(medecin_id)
+    return render_template('admin/voir_medecin.html', medecin=medecin)
+
+
+@admin_bp.route('/prescriptions')
+@login_required
+def liste_prescriptions():
+    """Liste toutes les prescriptions"""
+    if current_user.role == 'super_admin':
+        prescriptions = Prescription.query.order_by(Prescription.date_creation.desc()).all()
+    else:
+        prescriptions = Prescription.query.filter_by(clinique_id=current_user.clinique_id).order_by(Prescription.date_creation.desc()).all()
+    
+    return render_template('admin/prescriptions.html', prescriptions=prescriptions)

@@ -14,7 +14,7 @@
     </div>
 </div>
 
-<!-- Formulaire d'ajout (modal) -->
+<!-- Formulaire d'ajout (modal) avec UPLOAD DE PHOTO -->
 <div class="modal fade" id="ajouterModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -22,12 +22,34 @@
                 <h5 class="modal-title"><i class="bi bi-person-plus"></i> {{ _('Nouveau médecin') }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ url_for('admin.ajouter_medecin') }}">
+            <form method="POST" action="{{ url_for('admin.ajouter_medecin') }}" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 
                 <div class="modal-body">
+                    <!-- Upload de photo avec preview -->
+                    <div class="text-center mb-4">
+                        <div class="avatar-upload">
+                            <div class="avatar-preview" id="avatarPreview">
+                                <div class="avatar-initials-preview" id="avatarInitials">
+                                    <i class="bi bi-camera-fill"></i>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <label for="avatar" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-cloud-upload"></i> {{ _('Choisir une photo') }}
+                                </label>
+                                <input type="file" class="d-none" id="avatar" name="avatar" accept="image/*">
+                            </div>
+                            <small class="text-muted">{{ _('Format: JPG, PNG (max 2MB)') }}</small>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
-                        <label for="nom" class="form-label">{{ _('Nom complet') }}</label>
+                        <label for="prenom" class="form-label">{{ _('Prénom') }}</label>
+                        <input type="text" class="form-control" id="prenom" name="prenom" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nom" class="form-label">{{ _('Nom') }}</label>
                         <input type="text" class="form-control" id="nom" name="nom" required>
                     </div>
                     <div class="mb-3">
@@ -70,7 +92,7 @@
     </div>
 </div>
 
-<!-- Liste des médecins -->
+<!-- Liste des médecins avec PHOTOS ET STATISTIQUES -->
 <div class="card">
     <div class="card-header bg-info text-white">
         <h5 class="mb-0"><i class="bi bi-people"></i> {{ _('Liste des médecins') }}</h5>
@@ -81,10 +103,13 @@
                 <table class="table table-striped">
                     <thead>
                         <tr>
+                            <th>{{ _('Photo') }}</th>
                             <th>{{ _('Nom') }}</th>
                             <th>{{ _('Email') }}</th>
                             <th>{{ _('Téléphone') }}</th>
                             <th>{{ _('Spécialité') }}</th>
+                            <th>{{ _('Patients') }}</th>
+                            <th>{{ _('RDV Aujourd\'hui') }}</th>
                             {% if current_user.role == 'super_admin' %}
                             <th>{{ _('Clinique') }}</th>
                             {% endif %}
@@ -96,13 +121,40 @@
                     <tbody>
                         {% for m in medecins %}
                         <tr>
-                            <td>{{ m.nom }}</td>
-                            <td>{{ m.email }}</td>
-                            <td>{{ m.telephone }}</td>
-                            <td>{{ m.specialite or '-' }}</td>
+                            <!-- Colonne photo avec avatar -->
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if m.avatar %}
+                                        <img src="{{ url_for('static', filename='uploads/avatars/' + m.avatar) }}" 
+                                             alt="{{ m.prenom }} {{ m.nom }}"
+                                             style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #4e73df;">
+                                    {% else %}
+                                        <div style="width: 40px; height: 40px; border-radius: 50%; 
+                                                    background: linear-gradient(135deg, #4e73df, #224abe); 
+                                                    color: white; display: flex; align-items: center; 
+                                                    justify-content: center; font-weight: bold; 
+                                                    font-size: 16px; border: 2px solid white;
+                                                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                                            {{ m.prenom[:1] if m.prenom else '' }}{{ m.nom[:1] if m.nom else '' }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="align-middle">{{ m.prenom }} {{ m.nom }}</td>
+                            <td class="align-middle">{{ m.email }}</td>
+                            <td class="align-middle">{{ m.telephone or '-' }}</td>
+                            <td class="align-middle">{{ m.specialite or '-' }}</td>
+                            
+                            <!-- ✅ Statistiques -->
+                            <td class="align-middle">
+                                <span class="badge bg-primary">{{ m.nb_patients or 0 }}</span>
+                            </td>
+                            <td class="align-middle">
+                                <span class="badge bg-success">{{ m.nb_rdv_aujourdhui or 0 }}</span>
+                            </td>
                             
                             {% if current_user.role == 'super_admin' %}
-                            <td>
+                            <td class="align-middle">
                                 {% if m.clinique %}
                                     {{ m.clinique.nom }}
                                 {% else %}
@@ -111,37 +163,55 @@
                             </td>
                             {% endif %}
                             
-                            <td>
+                            <td class="align-middle">
                                 {% if m.actif %}
                                     <span class="badge bg-success">{{ _('Actif') }}</span>
                                 {% else %}
                                     <span class="badge bg-danger">{{ _('Inactif') }}</span>
                                 {% endif %}
                             </td>
-                            <td>{{ m.date_inscription.strftime('%d/%m/%Y') }}</td>
-                            <td>
-                                {% if m.actif %}
-                                    <a href="{{ url_for('admin.desactiver_medecin', user_id=m.id) }}" 
-                                       class="btn btn-sm btn-warning"
-                                       onclick="return confirm('{{ _('Désactiver ce médecin ?') }}')">
-                                        <i class="bi bi-pause-circle"></i>
+                            <td class="align-middle">{{ m.date_inscription.strftime('%d/%m/%Y') }}</td>
+                            
+                            <!-- 🔥 COLONNE ACTIONS AVEC TOUS LES BOUTONS -->
+                            <td class="align-middle">
+                                <div class="d-flex gap-1">
+                                    {% if m.actif %}
+                                        <a href="{{ url_for('admin.desactiver_medecin', user_id=m.id) }}" 
+                                           class="btn btn-sm btn-warning"
+                                           onclick="return confirm('{{ _('Désactiver ce médecin ?') }}')">
+                                            <i class="bi bi-pause-circle"></i>
+                                        </a>
+                                    {% else %}
+                                        <a href="{{ url_for('admin.activer_medecin', user_id=m.id) }}" 
+                                           class="btn btn-sm btn-success">
+                                            <i class="bi bi-play-circle"></i>
+                                        </a>
+                                    {% endif %}
+                                    
+                                    <!-- 📅 Bouton Prendre RDV -->
+                                    <a href="{{ url_for('appointments.prendre_rdv', medecin_id=m.id) }}" 
+                                       class="btn btn-sm btn-primary" 
+                                       title="{{ _('Prendre rendez-vous avec ce médecin') }}">
+                                        <i class="bi bi-calendar-plus"></i>
                                     </a>
-                                {% else %}
-                                    <a href="{{ url_for('admin.activer_medecin', user_id=m.id) }}" 
-                                       class="btn btn-sm btn-success">
-                                        <i class="bi bi-play-circle"></i>
+                                    
+                                    <!-- ⏰ Bouton Gestion des disponibilités -->
+                                    <a href="{{ url_for('appointments.gerer_creneaux', medecin_id=m.id) }}" 
+                                       class="btn btn-sm btn-info" 
+                                       title="{{ _('Gérer les disponibilités (créneaux)') }}">
+                                        <i class="bi bi-clock-history"></i>
                                     </a>
-                                {% endif %}
-                                
-                                <!-- Formulaire de réinitialisation de mot de passe (POST avec confirmation) -->
-                                <form method="POST" action="{{ url_for('admin.reinitialiser_mot_de_passe', user_id=m.id) }}" 
-                                      style="display: inline;" 
-                                      onsubmit="return confirm('⚠️ {{ _('Réinitialiser le mot de passe de') }} {{ m.nom }} ?\n\n{{ _('Un nouveau mot de passe temporaire sera généré et affiché.') }}')">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-sm btn-info" title="{{ _('Réinitialiser le mot de passe') }}">
-                                        <i class="bi bi-key"></i>
-                                    </button>
-                                </form>
+                                    
+                                    <!-- 🔑 Réinitialisation mot de passe -->
+                                    <form method="POST" action="{{ url_for('admin.reinitialiser_mdp_medecin', user_id=m.id) }}" 
+                                          style="display: inline;" 
+                                          onsubmit="return confirm('⚠️ {{ _('Réinitialiser le mot de passe de') }} {{ m.prenom }} {{ m.nom }} ?\n\n{{ _('Un nouveau mot de passe temporaire sera généré et affiché.') }}')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-info" title="{{ _('Réinitialiser le mot de passe') }}">
+                                            <i class="bi bi-key"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -156,4 +226,96 @@
         {% endif %}
     </div>
 </div>
+
+<!-- 🔥 STYLES POUR L'UPLOAD D'AVATAR -->
+<style>
+.avatar-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+}
+
+.avatar-preview {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px dashed #4e73df;
+    margin-bottom: 1rem;
+    position: relative;
+    background: #f8f9fc;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.avatar-preview:hover {
+    border-color: #224abe;
+    transform: scale(1.05);
+}
+
+.avatar-initials-preview {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #4e73df, #224abe);
+    color: white;
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+.avatar-initials-preview i {
+    font-size: 2.5rem;
+    opacity: 0.8;
+}
+</style>
+
+<!-- 🔥 SCRIPT POUR LA PREVIEW DE L'AVATAR -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const avatarInput = document.getElementById('avatar');
+    const avatarPreview = document.getElementById('avatarPreview');
+    const prenomInput = document.getElementById('prenom');
+    const nomInput = document.getElementById('nom');
+    const avatarInitials = document.getElementById('avatarInitials');
+
+    if (avatarInput) {
+        avatarInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    avatarPreview.innerHTML = `<img src="${e.target.result}" alt="Preview" style="width:100%;height:100%;object-fit:cover;">`;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    function updateInitials() {
+        const prenom = prenomInput ? prenomInput.value : '';
+        const nom = nomInput ? nomInput.value : '';
+        const initials = (prenom.charAt(0) || '') + (nom.charAt(0) || '');
+        
+        if (avatarInput && !avatarInput.files.length) {
+            if (initials) {
+                avatarPreview.innerHTML = `<div class="avatar-initials-preview">${initials.toUpperCase()}</div>`;
+            } else {
+                avatarPreview.innerHTML = `<div class="avatar-initials-preview"><i class="bi bi-camera-fill"></i></div>`;
+            }
+        }
+    }
+
+    if (prenomInput) prenomInput.addEventListener('input', updateInitials);
+    if (nomInput) nomInput.addEventListener('input', updateInitials);
+
+    if (avatarPreview) {
+        avatarPreview.addEventListener('click', function() {
+            avatarInput.click();
+        });
+    }
+});
+</script>
 {% endblock %}

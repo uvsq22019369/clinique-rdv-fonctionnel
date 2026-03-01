@@ -41,27 +41,13 @@
     </div>
 </div>
 
-<!-- Liste des patients -->
+<!-- Liste des patients avec AVATARS -->
 <div class="card">
     <div class="card-header bg-info text-white">
         <h5 class="mb-0"><i class="bi bi-people"></i> {{ _('Tous les patients') }}</h5>
     </div>
     <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped" id="patientsTable">
-                <thead>
-                    <tr>
-                        <th class="sortable" data-sort="nom">{{ _('Nom') }} <i class="bi bi-arrow-down-up"></i></th>
-                        <th class="sortable" data-sort="telephone">{{ _('Téléphone') }} <i class="bi bi-arrow-down-up"></i></th>
-                        <th>{{ _('Email') }}</th>
-                        <th class="sortable" data-sort="date">{{ _('Date naissance') }} <i class="bi bi-arrow-down-up"></i></th>
-                        <th class="sortable" data-sort="created">{{ _('Inscription') }} <i class="bi bi-arrow-down-up"></i></th>
-                        <th>{{ _('Actions') }}</th>
-                    </tr>
-                </thead>
-                <tbody id="patientsTableBody"></tbody>
-            </table>
-        </div>
+        <div class="patients-grid" id="patientsGrid"></div>
         
         <nav aria-label="{{ _('Navigation des pages') }}">
             <ul class="pagination justify-content-center" id="pagination"></ul>
@@ -69,32 +55,51 @@
     </div>
 </div>
 
-<!-- Modal Ajouter Patient -->
+<!-- Modal Ajouter Patient avec upload d'avatar -->
 <div class="modal fade" id="ajouterPatientModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title"><i class="bi bi-person-plus"></i> {{ _('Nouveau patient') }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ url_for('appointments.ajouter_patient') }}">
+            <form method="POST" action="{{ url_for('appointments.ajouter_patient') }}" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="nom" class="form-label">{{ _('Nom complet') }}</label>
-                        <input type="text" class="form-control" id="nom" name="nom" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="telephone" class="form-label">{{ _('Téléphone') }}</label>
-                        <input type="tel" class="form-control" id="telephone" name="telephone" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="email" class="form-label">{{ _('Email (optionnel)') }}</label>
-                        <input type="email" class="form-control" id="email" name="email">
-                    </div>
-                    <div class="mb-3">
-                        <label for="date_naissance" class="form-label">{{ _('Date de naissance (optionnel)') }}</label>
-                        <input type="date" class="form-control" id="date_naissance" name="date_naissance">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <!-- Avatar preview -->
+                            <div class="avatar-upload mb-3">
+                                <div class="avatar-preview" id="avatarPreview">
+                                    <div class="avatar-initials-preview" id="avatarInitials">+</div>
+                                </div>
+                                <div class="mt-2">
+                                    <label for="avatarInput" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-camera"></i> {{ _('Choisir photo') }}
+                                    </label>
+                                    <input type="file" id="avatarInput" name="avatar" accept="image/*" class="d-none">
+                                </div>
+                                <small class="text-muted">{{ _('Format: JPG, PNG (max 2MB)') }}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="nom" class="form-label">{{ _('Nom complet') }}</label>
+                                <input type="text" class="form-control" id="nom" name="nom" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="telephone" class="form-label">{{ _('Téléphone') }}</label>
+                                <input type="tel" class="form-control" id="telephone" name="telephone" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="email" class="form-label">{{ _('Email (optionnel)') }}</label>
+                                <input type="email" class="form-control" id="email" name="email">
+                            </div>
+                            <div class="mb-3">
+                                <label for="date_naissance" class="form-label">{{ _('Date de naissance (optionnel)') }}</label>
+                                <input type="date" class="form-control" id="date_naissance" name="date_naissance">
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -106,12 +111,166 @@
     </div>
 </div>
 
+<!-- Styles pour les avatars patients -->
+<style>
+.patients-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.patient-card {
+    background: white;
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+    border: 1px solid rgba(0,0,0,0.03);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.patient-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(78, 115, 223, 0.1);
+    border-color: rgba(78, 115, 223, 0.2);
+}
+
+.patient-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #4e73df, #224abe);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.patient-card:hover::before {
+    opacity: 1;
+}
+
+/* Avatar patient */
+.patient-avatar-large {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.patient-avatar-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.patient-avatar-initials {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+}
+
+/* Infos patient */
+.patient-info {
+    flex: 1;
+}
+
+.patient-name {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2d2d2d;
+    margin-bottom: 0.25rem;
+}
+
+.patient-contact {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #858796;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.patient-contact i {
+    color: #4e73df;
+    font-size: 1rem;
+}
+
+.patient-badge {
+    display: inline-block;
+    background: rgba(78, 115, 223, 0.1);
+    color: #4e73df;
+    padding: 0.25rem 0.75rem;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-top: 0.5rem;
+}
+
+/* Avatar upload */
+.avatar-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.avatar-preview {
+    width: 150px;
+    height: 150px;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 3px dashed #4e73df;
+    margin-bottom: 1rem;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.avatar-preview:hover {
+    border-color: #224abe;
+    transform: scale(1.05);
+}
+
+.avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-initials-preview {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+    color: white;
+    font-size: 3rem;
+    font-weight: 600;
+}
+</style>
+
 <script>
 let currentPage = 1;
 let currentSort = 'nom';
 let currentSortDir = 'asc';
 let currentSearch = '';
-let currentPerPage = 10;
+let currentPerPage = 12;
 
 function loadPatients() {
     const url = new URL('{{ url_for("appointments.api_patients") }}', window.location.origin);
@@ -126,35 +285,62 @@ function loadPatients() {
         .then(data => {
             displayPatients(data.patients);
             setupPagination(data.total, data.pages);
-        });
+        })
+        .catch(error => console.error('Erreur chargement patients:', error));
 }
 
 function displayPatients(patients) {
-    const tbody = document.getElementById('patientsTableBody');
-    tbody.innerHTML = '';
+    const grid = document.getElementById('patientsGrid');
+    grid.innerHTML = '';
     
     patients.forEach(p => {
-        const row = `
-            <tr>
-                <td>${p.nom}</td>
-                <td>${p.telephone}</td>
-                <td>${p.email || '-'}</td>
-                <td>${p.date_naissance || '-'}</td>
-                <td>${p.date_creation}</td>
-                <td>
-                    <button class="btn btn-sm btn-primary" onclick="voirPatient(${p.id})">
-                        <i class="bi bi-eye"></i>
-                    </button>
-                </td>
-            </tr>
+        // Générer une couleur basée sur le nom pour l'avatar
+        const colors = ['#4e73df', '#1cc88a', '#e74a3b', '#f6c23e', '#36b9cc', '#5a5c69'];
+        const colorIndex = p.nom ? p.nom.length % colors.length : 0;
+        const bgColor = colors[colorIndex];
+        
+        const card = document.createElement('div');
+        card.className = 'patient-card';
+        card.onclick = () => voirPatient(p.id);
+        
+        // Avatar HTML
+        let avatarHtml = '';
+        if (p.avatar) {
+            avatarHtml = `<img src="{{ url_for('static', filename='uploads/patients/') }}${p.avatar}" alt="${p.nom}">`;
+        } else {
+            const initials = p.nom ? p.nom.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : '??';
+            avatarHtml = `<div class="patient-avatar-initials" style="background: ${bgColor};">${initials}</div>`;
+        }
+        
+        card.innerHTML = `
+            <div class="patient-avatar-large">
+                ${avatarHtml}
+            </div>
+            <div class="patient-info">
+                <div class="patient-name">${p.nom || 'Sans nom'}</div>
+                <div class="patient-contact">
+                    <i class="bi bi-telephone"></i> ${p.telephone || 'Non renseigné'}
+                </div>
+                ${p.email ? `
+                <div class="patient-contact">
+                    <i class="bi bi-envelope"></i> ${p.email}
+                </div>
+                ` : ''}
+                <div class="patient-badge">
+                    <i class="bi bi-calendar3"></i> ${p.date_creation || 'Nouveau'}
+                </div>
+            </div>
         `;
-        tbody.innerHTML += row;
+        
+        grid.appendChild(card);
     });
 }
 
 function setupPagination(total, pages) {
     const pagination = document.getElementById('pagination');
     pagination.innerHTML = '';
+    
+    if (pages <= 1) return;
     
     pagination.innerHTML += `
         <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
@@ -187,6 +373,54 @@ function changePage(page) {
     loadPatients();
 }
 
+function voirPatient(id) {
+    // 🔥 CORRIGÉ: Simple alerte au lieu de redirection
+    alert('Fonctionnalité à venir: Détails du patient');
+    // Plus tard, tu pourras décommenter cette ligne quand la route existera
+    // window.location.href = `/patient/${id}`;
+}
+
+// Preview avatar avant upload
+document.addEventListener('DOMContentLoaded', function() {
+    const avatarInput = document.getElementById('avatarInput');
+    const avatarPreview = document.getElementById('avatarPreview');
+    const nomInput = document.getElementById('nom');
+    const avatarInitials = document.getElementById('avatarInitials');
+
+    if (avatarInput) {
+        avatarInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    avatarPreview.innerHTML = `<img src="${e.target.result}" alt="Preview" style="width:100%;height:100%;object-fit:cover;">`;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    // Mettre à jour les initiales preview quand on tape le nom
+    if (nomInput) {
+        nomInput.addEventListener('input', function(e) {
+            const nom = e.target.value;
+            const initials = nom.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            if (avatarInitials) {
+                avatarInitials.textContent = initials || '+';
+            }
+        });
+    }
+
+    // Cliquer sur la preview ouvre le sélecteur de fichier
+    if (avatarPreview) {
+        avatarPreview.addEventListener('click', function() {
+            if (avatarInput) {
+                avatarInput.click();
+            }
+        });
+    }
+});
+
 document.getElementById('searchInput').addEventListener('input', function(e) {
     currentSearch = e.target.value;
     currentPage = 1;
@@ -199,19 +433,7 @@ document.getElementById('perPageSelect').addEventListener('change', function(e) 
     loadPatients();
 });
 
-document.querySelectorAll('.sortable').forEach(th => {
-    th.addEventListener('click', function() {
-        const sort = this.dataset.sort;
-        if (currentSort === sort) {
-            currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
-        } else {
-            currentSort = sort;
-            currentSortDir = 'asc';
-        }
-        loadPatients();
-    });
-});
-
+// Chargement initial
 loadPatients();
 </script>
 {% endblock %}

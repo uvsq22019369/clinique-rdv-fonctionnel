@@ -2,21 +2,50 @@
 
 {% block title %}Gestion des Créneaux{% endblock %}
 
+{% block header %}
+    {% if medecin_id and medecin_id != current_user.id %}
+        {{ _('Gestion des créneaux') }}
+    {% else %}
+        {{ _('Mes créneaux') }}
+    {% endif %}
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col">
-        <h2><i class="bi bi-clock"></i> Gestion des créneaux</h2>
+        <h2><i class="bi bi-clock-history"></i> 
+            {% if medecin_id and medecin_id != current_user.id %}
+                {% for m in medecins if m.id == medecin_id %}
+                    Créneaux de Dr. {{ m.prenom }} {{ m.nom }}
+                {% else %}
+                    Gestion des créneaux
+                {% endfor %}
+            {% else %}
+                Mes créneaux de disponibilité
+            {% endif %}
+        </h2>
+        <p class="text-muted">
+            {% if medecin_id and medecin_id != current_user.id %}
+                Gérez les disponibilités de ce médecin pour les rendez-vous
+            {% else %}
+                Gérez vos disponibilités pour les rendez-vous
+            {% endif %}
+        </p>
     </div>
     <div class="col text-end">
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ajouterModal">
             <i class="bi bi-plus-circle"></i> Ajouter des créneaux
         </button>
+        <a href="javascript:history.back()" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
     </div>
 </div>
 
-<!-- Message de débogage temporaire -->
+<!-- Message de débogage (à supprimer plus tard) -->
 <div class="alert alert-info">
-    <strong>Débogage:</strong> {{ disponibilites|length }} créneaux trouvés
+    <strong>Info:</strong> {{ disponibilites|length }} créneau(x) trouvé(s)
+    {% if medecin_id %} pour le médecin #{{ medecin_id }}{% endif %}
 </div>
 
 <!-- Liste des créneaux -->
@@ -24,7 +53,14 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header bg-info text-white">
-                <h5 class="mb-0">Mes disponibilités</h5>
+                <h5 class="mb-0">
+                    <i class="bi bi-list"></i> 
+                    {% if medecin_id and medecin_id != current_user.id %}
+                        Disponibilités du médecin
+                    {% else %}
+                        Mes disponibilités
+                    {% endif %}
+                </h5>
             </div>
             <div class="card-body">
                 {% if disponibilites and disponibilites|length > 0 %}
@@ -60,8 +96,13 @@
                     </div>
                 {% else %}
                     <div class="alert alert-warning">
-                        <p class="mb-0"><i class="bi bi-exclamation-triangle"></i> Aucun créneau de disponibilité défini.</p>
-                        <p class="mb-0 mt-2">Cliquez sur "Ajouter des créneaux" pour commencer.</p>
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        {% if medecin_id and medecin_id != current_user.id %}
+                            Ce médecin n'a pas encore défini de créneaux.
+                        {% else %}
+                            Vous n'avez pas encore défini de créneaux.
+                        {% endif %}
+                        <p class="mt-2 mb-0">Cliquez sur "Ajouter des créneaux" pour commencer.</p>
                     </div>
                 {% endif %}
             </div>
@@ -79,6 +120,8 @@
             </div>
             <form method="POST" action="{{ url_for('appointments.ajouter_creneaux') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <!-- 🔥 Champ caché pour l'ID du médecin -->
+                <input type="hidden" name="medecin_id" value="{{ medecin_id or current_user.id }}">
                 
                 <div class="modal-body">
                     <div class="mb-3">
@@ -116,4 +159,15 @@
         </div>
     </div>
 </div>
+
+<!-- Script pour la date minimum -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.getElementById('date');
+    if (dateInput && !dateInput.min) {
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.min = today;
+    }
+});
+</script>
 {% endblock %}

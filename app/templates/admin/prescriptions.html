@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}{{ _('Liste des prescriptions') }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2><i class="bi bi-file-text"></i> {{ _('Prescriptions') }}</h2>
+    </div>
+    <div class="col text-end">
+        <a href="{{ url_for('appointments.dashboard') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> {{ _('Retour') }}
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="bi bi-list"></i> {{ _('Toutes les prescriptions') }}</h5>
+    </div>
+    <div class="card-body">
+        {% if prescriptions %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>{{ _('ID') }}</th>
+                            <th>{{ _('Patient') }}</th>
+                            <th>{{ _('Médecin') }}</th>
+                            <th>{{ _('Date') }}</th>
+                            <th>{{ _('Médicaments') }}</th>
+                            <th>{{ _('Actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in prescriptions %}
+                        <tr>
+                            <td>#{{ p.id }}</td>
+                            <td>{{ p.patient.nom }}</td>
+                            <td>Dr. {{ p.doctor.nom }}</td>
+                            <td>{{ p.date_creation.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                {% set medicaments = p.medicaments.split('\n') %}
+                                {{ medicaments[0][:50] }}{% if medicaments[0]|length > 50 %}...{% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('admin.voir_prescription', prescription_id=p.id) }}" 
+                                   class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if p.fichier_pdf %}
+                                <a href="{{ url_for('admin.telecharger_pdf', prescription_id=p.id) }}" 
+                                   class="btn btn-sm btn-success">
+                                    <i class="bi bi-file-pdf"></i>
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                {{ _('Aucune prescription trouvée.') }}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -31,10 +31,15 @@ class Clinique(db.Model):
     availabilities = db.relationship('Availability', backref='clinique', lazy=True)
     prescriptions = db.relationship('Prescription', backref='clinique', lazy=True)
 
+
+# =======================================================
+# MODÈLE UTILISATEUR (avec AVATAR pour les médecins)
+# =======================================================
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
+    prenom = db.Column(db.String(100), nullable=True)  # Prénom (optionnel mais recommandé)
     nom = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     mot_de_passe_hash = db.Column(db.String(200), nullable=False)
@@ -48,13 +53,21 @@ class User(UserMixin, db.Model):
     date_inscription = db.Column(db.DateTime, default=datetime.utcnow)
     actif = db.Column(db.Boolean, default=True)
     
+    # NOUVEAU : Avatar pour les photos de profil
+    avatar = db.Column(db.String(255), nullable=True)
+    
     # Lien vers clinique (NULL pour super_admin)
     clinique_id = db.Column(db.Integer, db.ForeignKey('cliniques.id'), nullable=True)
     
+    # Relations
     appointments = db.relationship('Appointment', backref='doctor', lazy=True, foreign_keys='Appointment.medecin_id')
     availabilities = db.relationship('Availability', backref='doctor', lazy=True)
     prescriptions = db.relationship('Prescription', backref='doctor', lazy=True, foreign_keys='Prescription.medecin_id')
 
+
+# =======================================================
+# MODÈLE PATIENT (avec AVATAR)
+# =======================================================
 class Patient(db.Model):
     __tablename__ = 'patients'
     
@@ -64,14 +77,23 @@ class Patient(db.Model):
     email = db.Column(db.String(100))
     date_naissance = db.Column(db.Date)
     adresse = db.Column(db.String(200))
+    
+    # NOUVEAU : Avatar pour les patients
+    avatar = db.Column(db.String(255), nullable=True)
+    
     date_creation = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Lien vers clinique
     clinique_id = db.Column(db.Integer, db.ForeignKey('cliniques.id'), nullable=False)
     
+    # Relations
     appointments = db.relationship('Appointment', backref='patient', lazy=True)
     prescriptions = db.relationship('Prescription', backref='patient', lazy=True)
 
+
+# =======================================================
+# MODÈLE RENDEZ-VOUS
+# =======================================================
 class Appointment(db.Model):
     __tablename__ = 'appointments'
     
@@ -92,8 +114,13 @@ class Appointment(db.Model):
     # Lien vers clinique
     clinique_id = db.Column(db.Integer, db.ForeignKey('cliniques.id'), nullable=False)
     
+    # Relations
     prescription = db.relationship('Prescription', backref='appointment', uselist=False, lazy=True)
 
+
+# =======================================================
+# MODÈLE DISPONIBILITÉS
+# =======================================================
 class Availability(db.Model):
     __tablename__ = 'availability'
     
@@ -107,6 +134,10 @@ class Availability(db.Model):
     # Lien vers clinique
     clinique_id = db.Column(db.Integer, db.ForeignKey('cliniques.id'), nullable=False)
 
+
+# =======================================================
+# MODÈLE PRESCRIPTION
+# =======================================================
 class Prescription(db.Model):
     __tablename__ = 'prescriptions'
     

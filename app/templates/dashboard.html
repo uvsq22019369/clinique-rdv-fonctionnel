@@ -3,159 +3,521 @@
 {% block title %}{{ _('Dashboard') }}{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col">
-        <h2><i class="bi bi-speedometer2"></i> {{ _('Tableau de bord') }}</h2>
-    </div>
-    {% if current_user.role == 'medecin' %}
-    <div class="col text-end">
-        <a href="{{ url_for('appointments.prendre_rdv') }}" class="btn btn-success">
-            <i class="bi bi-plus-circle"></i> {{ _('Nouveau RDV') }}
-        </a>
-    </div>
-    {% endif %}
-</div>
+<div class="container-fluid py-4">
 
-<!-- GRAND CHIFFRE : Rendez-vous aujourd'hui -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card text-white bg-primary text-center py-4">
-            <div class="card-body">
-                <h1 class="display-1">{{ total_rdv_aujourdhui }}</h1>
-                <h3>{{ _('Rendez-vous aujourd\'hui') }}</h3>
-                <p class="mb-0">
-                    <span class="badge bg-light text-primary">{{ rdv_aujourdhui|length }} {{ _('confirmés') }}</span>
-                    <span class="badge bg-warning">{{ rdv_annules_aujourdhui }} {{ _('annulés') }}</span>
+    <!-- HEADER AVEC BIENVENUE ET BOUTONS -->
+    <div class="welcome-card glass-card mb-5">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold mb-1">
+                    <i class="bi bi-stars text-primary me-2"></i>
+                    {{ _('Tableau de bord') }}
+                </h2>
+                <p class="text-muted mb-0">
+                    <i class="bi bi-person-circle me-2"></i>
+                    {{ _('Bienvenue') }}, <strong>{{ current_user.prenom or current_user.nom or '' }}</strong> !
+                    {{ _('Voici votre activité du') }} 
+                    {% set mois_fr = {
+                        1: 'janvier', 2: 'février', 3: 'mars', 4: 'avril', 
+                        5: 'mai', 6: 'juin', 7: 'juillet', 8: 'août',
+                        9: 'septembre', 10: 'octobre', 11: 'novembre', 12: 'décembre'
+                    } %}
+                    {{ now().day }} {{ mois_fr[now().month] }} {{ now().year }}
                 </p>
             </div>
+            
+            <div class="d-flex gap-2">
+                <!-- 🔥 BOUTON CALENDRIER -->
+                <a href="{{ url_for('appointments.calendrier') }}" 
+                   class="btn btn-outline-primary btn-lg shadow-lg">
+                    <i class="bi bi-calendar-week me-2"></i>
+                    {{ _('Calendrier') }}
+                </a>
+                
+                <!-- 🔥 BOUTON PRENDRE RDV -->
+                <a href="{{ url_for('appointments.prendre_rdv') }}" 
+                   class="btn btn-primary btn-lg shadow-lg">
+                    <i class="bi bi-calendar-plus me-2"></i>
+                    {{ _('Prendre RDV') }}
+                </a>
+                
+                <span class="badge bg-primary p-3">
+                    <i class="bi bi-calendar-check me-2"></i>{{ rdv_aujourdhui|length }} confirmés
+                </span>
+                <span class="badge bg-danger p-3">
+                    <i class="bi bi-x-circle me-2"></i>{{ rdv_annules_aujourdhui }} annulés
+                </span>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Statistiques en cartes -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-white bg-primary">
-            <div class="card-body">
-                <h5 class="card-title">{{ _('Patients') }}</h5>
-                <h2>{{ total_patients }}</h2>
-                <small>{{ _('Total patients') }}</small>
+    <!-- GRAND CHIFFRE -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="stats-hero">
+                <div class="hero-content">
+                    <span class="hero-label">{{ _('Rendez-vous aujourd\'hui') }}</span>
+                    <div class="hero-value">{{ total_rdv_aujourdhui }}</div>
+                </div>
+                <div class="hero-decoration">
+                    <i class="bi bi-calendar-check"></i>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-success">
-            <div class="card-body">
-                <h5 class="card-title">{{ _('RDV ce mois') }}</h5>
-                <h2>{{ total_rdv_mois }}</h2>
-                <small>{{ _('Consultations') }}</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-danger">
-            <div class="card-body">
-                <h5 class="card-title">{{ _('RDV annulés') }}</h5>
-                <h2>{{ rdv_annules }}</h2>
-                <small>{{ _('Total annulations') }}</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-warning">
-            <div class="card-body">
-                <h5 class="card-title">{{ _('Taux d\'absences') }}</h5>
-                <h2>{{ taux_absence }}%</h2>
-                <small>{{ _('Patients non venus') }}</small>
-            </div>
-        </div>
-    </div>
-</div>
 
-<div class="row">
-    <!-- RDV du jour détaillé -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="bi bi-calendar-day"></i> {{ _('Rendez-vous du jour') }}</h5>
-                <span class="badge bg-light text-info">{{ rdv_aujourdhui|length }} {{ _('confirmés') }}</span>
+    <!-- KPI CARDS -->
+    <div class="row g-4 mb-5">
+        <!-- Patients -->
+        <div class="col-md-3">
+            <div class="kpi-card" data-color="primary">
+                <div class="kpi-header">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+                <div class="kpi-body">
+                    <span class="kpi-label">{{ _('PATIENTS') }}</span>
+                    <div class="kpi-value">{{ total_patients }}</div>
+                    <span class="kpi-subtitle">{{ _('Total patients') }}</span>
+                </div>
+                <div class="kpi-footer">
+                    <span class="trend up">
+                        <i class="bi bi-arrow-up"></i> +12%
+                    </span>
+                </div>
             </div>
-            <div class="card-body">
-                {% if rdv_aujourdhui %}
-                    <div class="list-group">
-                        {% for rdv in rdv_aujourdhui %}
-                            <div class="list-group-item">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong>{{ rdv.heure }}</strong> - {{ rdv.patient.nom }}
-                                        {% if rdv.motif %}
-                                            <br><small class="text-muted">{{ rdv.motif }}</small>
-                                        {% endif %}
-                                    </div>
-                                    <div class="btn-group">
-                                        <a href="{{ url_for('admin.creer_prescription', appointment_id=rdv.id) }}" 
-                                           class="btn btn-sm btn-outline-success" title="{{ _('Créer ordonnance') }}">
-                                            <i class="bi bi-file-text"></i>
-                                        </a>
-                                        <a href="{{ url_for('appointments.annuler_rdv', rdv_id=rdv.id) }}" 
-                                           class="btn btn-sm btn-outline-danger" 
-                                           onclick="return confirm('{{ _('Annuler ce rendez-vous ?') }}')">
-                                            <i class="bi bi-x-circle"></i> {{ _('Annuler') }}
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        {% endfor %}
+        </div>
+
+        <!-- RDV ce mois -->
+        <div class="col-md-3">
+            <div class="kpi-card" data-color="success">
+                <div class="kpi-header">
+                    <i class="bi bi-calendar-check-fill"></i>
+                </div>
+                <div class="kpi-body">
+                    <span class="kpi-label">{{ _('RDV CE MOIS') }}</span>
+                    <div class="kpi-value">{{ total_rdv_mois }}</div>
+                    <span class="kpi-subtitle">{{ _('Consultations') }}</span>
+                </div>
+                <div class="kpi-footer">
+                    <span class="trend stable">
+                        <i class="bi bi-dash"></i> {{ _('Stable') }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- RDV annulés -->
+        <div class="col-md-3">
+            <div class="kpi-card" data-color="danger">
+                <div class="kpi-header">
+                    <i class="bi bi-x-circle-fill"></i>
+                </div>
+                <div class="kpi-body">
+                    <span class="kpi-label">{{ _('RDV ANNULÉS') }}</span>
+                    <div class="kpi-value">{{ rdv_annules }}</div>
+                    <span class="kpi-subtitle">{{ _('Total annulations') }}</span>
+                </div>
+                <div class="kpi-footer">
+                    <span class="trend up">
+                        <i class="bi bi-arrow-up"></i> +2
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Taux d'absence -->
+        <div class="col-md-3">
+            <div class="kpi-card" data-color="warning">
+                <div class="kpi-header">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+                <div class="kpi-body">
+                    <span class="kpi-label">{{ _('TAUX D\'ABSENCE') }}</span>
+                    <div class="kpi-value">{{ taux_absence }}%</div>
+                    <span class="kpi-subtitle">{{ _('Patients non venus') }}</span>
+                </div>
+                <div class="kpi-footer">
+                    <div class="progress">
+                        <div class="progress-bar" style="width: {{ taux_absence }}%;"></div>
                     </div>
-                {% else %}
-                    <p class="text-muted mb-0">{{ _('Aucun rendez-vous aujourd\'hui') }}</p>
-                {% endif %}
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Prochains RDV -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-warning">
-                <h5 class="mb-0"><i class="bi bi-calendar-week"></i> {{ _('Prochains rendez-vous') }}</h5>
-            </div>
-            <div class="card-body">
-                {% if prochains_rdv %}
-                    <div class="list-group">
-                        {% for rdv in prochains_rdv %}
-                            <div class="list-group-item">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong>{{ rdv.date.strftime('%d/%m/%Y') }} {{ _('à') }} {{ rdv.heure }}</strong>
-                                        <br>{{ rdv.patient.nom }}
-                                        {% if rdv.motif %}
-                                            <br><small class="text-muted">{{ rdv.motif }}</small>
-                                        {% endif %}
-                                    </div>
+    <!-- SECTION RENDEZ-VOUS DU JOUR ET PROCHAINS RDV -->
+    <div class="row g-4">
+        <!-- RDV du jour -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 pt-4 px-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0">
+                            <i class="bi bi-calendar-day text-primary me-2"></i>
+                            {{ _('Rendez-vous du jour') }}
+                        </h5>
+                        <span class="badge bg-primary rounded-pill">{{ rdv_aujourdhui|length }}</span>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    {% if rdv_aujourdhui %}
+                        {% for rdv in rdv_aujourdhui %}
+                            <div class="rdv-card">
+                                <div class="rdv-time">{{ rdv.heure }}</div>
+                                <div class="rdv-info">
+                                    <div class="rdv-patient">{{ rdv.patient.nom }}</div>
+                                    {% if rdv.motif %}
+                                        <div class="rdv-motif">{{ rdv.motif }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="rdv-actions">
+                                    <a href="{{ url_for('admin.creer_prescription', appointment_id=rdv.id) }}" 
+                                       class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-file-text"></i>
+                                    </a>
                                     <a href="{{ url_for('appointments.annuler_rdv', rdv_id=rdv.id) }}" 
-                                       class="btn btn-sm btn-outline-danger" 
+                                       class="btn btn-sm btn-outline-danger"
                                        onclick="return confirm('{{ _('Annuler ce rendez-vous ?') }}')">
-                                        <i class="bi bi-x-circle"></i> {{ _('Annuler') }}
+                                        <i class="bi bi-x-circle"></i>
                                     </a>
                                 </div>
                             </div>
                         {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="bi bi-calendar-x"></i>
+                            <p>{{ _('Aucun rendez-vous aujourd\'hui') }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Prochains RDV -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 pt-4 px-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0">
+                            <i class="bi bi-calendar-week text-warning me-2"></i>
+                            {{ _('Prochains rendez-vous') }}
+                        </h5>
+                        <span class="badge bg-warning rounded-pill">{{ prochains_rdv|length }}</span>
                     </div>
-                {% else %}
-                    <p class="text-muted mb-0">{{ _('Aucun rendez-vous à venir') }}</p>
-                {% endif %}
+                </div>
+                <div class="card-body p-4">
+                    {% if prochains_rdv %}
+                        {% for rdv in prochains_rdv %}
+                            <div class="rdv-card future">
+                                <div class="rdv-time">{{ rdv.date.strftime('%d/%m') }}<br><small>{{ rdv.heure }}</small></div>
+                                <div class="rdv-info">
+                                    <div class="rdv-patient">{{ rdv.patient.nom }}</div>
+                                    {% if rdv.motif %}
+                                        <div class="rdv-motif">{{ rdv.motif }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="rdv-actions">
+                                    <a href="{{ url_for('appointments.annuler_rdv', rdv_id=rdv.id) }}" 
+                                       class="btn btn-sm btn-outline-danger"
+                                       onclick="return confirm('{{ _('Annuler ce rendez-vous ?') }}')">
+                                        <i class="bi bi-x-circle"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="bi bi-calendar-check"></i>
+                            <p>{{ _('Aucun rendez-vous à venir') }}</p>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- ALERTE ABSENTS -->
+    {% if rdv_absents and rdv_absents > 0 %}
+    <div class="alert-premium mt-5">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <div class="alert-content">
+            <strong>{{ _('Attention :') }}</strong> 
+            {{ rdv_absents }} {{ _('patients absents.') }}
+            {{ _('Pensez à envoyer des rappels SMS.') }}
+        </div>
+    </div>
+    {% endif %}
+
 </div>
 
-<!-- Petit rappel pour les absents -->
-{% if rdv_absents and rdv_absents > 0 %}
-<div class="alert alert-warning mt-3">
-    <i class="bi bi-exclamation-triangle"></i>
-    <strong>{{ _('Attention :') }}</strong> {{ rdv_absents }} {{ _('patients ne se sont pas présentés à leur rendez-vous.') }}
-    {{ _('Pensez à envoyer des rappels SMS pour réduire les absences.') }}
-</div>
-{% endif %}
+<!-- STYLES -->
+<style>
+/* Glass card pour le header */
+.glass-card {
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+    border-left: 5px solid #4e73df;
+}
+
+/* Hero stats */
+.stats-hero {
+    background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+    border-radius: 30px;
+    padding: 3rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 30px 60px rgba(78, 115, 223, 0.4);
+}
+
+.stats-hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200px;
+    height: 200px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%;
+    transform: rotate(25deg);
+}
+
+.hero-content {
+    position: relative;
+    z-index: 2;
+    color: white;
+}
+
+.hero-label {
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    opacity: 0.9;
+}
+
+.hero-value {
+    font-size: 6rem;
+    font-weight: 800;
+    line-height: 1;
+    margin: 1rem 0;
+    text-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+
+.hero-decoration {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1;
+}
+
+.hero-decoration i {
+    font-size: 8rem;
+    opacity: 0.2;
+    color: white;
+}
+
+/* KPI Cards */
+.kpi-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.kpi-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+
+.kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+}
+
+.kpi-card[data-color="primary"]::before { background: linear-gradient(90deg, #4e73df, #224abe); }
+.kpi-card[data-color="success"]::before { background: linear-gradient(90deg, #1cc88a, #13855c); }
+.kpi-card[data-color="danger"]::before { background: linear-gradient(90deg, #e74a3b, #be2617); }
+.kpi-card[data-color="warning"]::before { background: linear-gradient(90deg, #f6c23e, #dda20a); }
+
+.kpi-header {
+    padding: 1.5rem 1.5rem 0.5rem;
+}
+
+.kpi-header i {
+    font-size: 2.5rem;
+    opacity: 0.5;
+}
+
+.kpi-card[data-color="primary"] .kpi-header i { color: #4e73df; }
+.kpi-card[data-color="success"] .kpi-header i { color: #1cc88a; }
+.kpi-card[data-color="danger"] .kpi-header i { color: #e74a3b; }
+.kpi-card[data-color="warning"] .kpi-header i { color: #f6c23e; }
+
+.kpi-body {
+    padding: 0 1.5rem 1rem;
+}
+
+.kpi-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #b7b9cc;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.kpi-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2d2d2d;
+    line-height: 1.2;
+}
+
+.kpi-subtitle {
+    font-size: 0.9rem;
+    color: #858796;
+}
+
+.kpi-footer {
+    padding: 1rem 1.5rem;
+    background: #f8f9fc;
+    border-top: 1px solid #edf2f9;
+}
+
+.trend {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.trend.up { color: #1cc88a; }
+.trend.down { color: #e74a3b; }
+.trend.stable { color: #f6c23e; }
+
+.progress {
+    height: 6px;
+    border-radius: 3px;
+    background: #edf2f9;
+}
+
+.progress-bar {
+    background: #f6c23e;
+    border-radius: 3px;
+}
+
+/* RDV Cards */
+.rdv-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8f9fc;
+    border-radius: 15px;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+    border-left: 4px solid #667eea;
+}
+
+.rdv-card.future {
+    border-left-color: #f6c23e;
+    background: linear-gradient(135deg, #fff5e6, #ffe6cc);
+}
+
+.rdv-card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+}
+
+.rdv-time {
+    min-width: 70px;
+    text-align: center;
+    font-weight: 600;
+    color: #667eea;
+    background: white;
+    padding: 0.5rem;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.03);
+}
+
+.rdv-info {
+    flex: 1;
+}
+
+.rdv-patient {
+    font-weight: 600;
+    color: #2d2d2d;
+}
+
+.rdv-motif {
+    font-size: 0.85rem;
+    color: #858796;
+}
+
+.rdv-actions {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.rdv-card:hover .rdv-actions {
+    opacity: 1;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: #858796;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+/* Alert Premium */
+.alert-premium {
+    background: linear-gradient(135deg, #fff3cd, #ffe69c);
+    border-left: 5px solid #f6c23e;
+    border-radius: 15px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 10px 30px rgba(246, 194, 62, 0.2);
+}
+
+.alert-premium i {
+    font-size: 2rem;
+    color: #856404;
+}
+
+.alert-content {
+    flex: 1;
+    font-size: 1.1rem;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.kpi-card, .stats-hero {
+    animation: fadeInUp 0.5s ease forwards;
+}
+</style>
 {% endblock %}

@@ -73,7 +73,7 @@
                                         </button>
                                     </form>
                                 {% endif %}
-                                <form action="{{ url_for('admin.reinitialiser_mot_de_passe', user_id=user.id) }}" method="POST" style="display:inline;">
+                                <form action="{{ url_for('admin.reinitialiser_mdp_secretaire', user_id=user.id) }}" method="POST" style="display:inline;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-info" onclick="return confirm('Réinitialiser le mot de passe ?')">
                                         <i class="bi bi-key"></i>
