@@ -8,12 +8,12 @@ from datetime import datetime, timedelta
 import json
 import os
 import csv
+import threading
 from io import StringIO, BytesIO
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
-from math import ceil
 
 appointments_bp = Blueprint('appointments', __name__)
 
@@ -102,6 +102,9 @@ def dashboard():
             date=today
         ).count()
     
+    # ========== Date formatée pour le dashboard ==========
+    date_du_jour = datetime.now().strftime('%d %B %Y')
+    
     return render_template('dashboard.html',
                          total_patients=total_patients,
                          total_rdv_mois=total_rdv_mois,
@@ -111,7 +114,9 @@ def dashboard():
                          rdv_aujourdhui=rdv_aujourdhui,
                          prochains_rdv=prochains_rdv,
                          rdv_annules_aujourdhui=rdv_annules_aujourdhui,
-                         total_rdv_aujourdhui=total_rdv_aujourdhui)
+                         total_rdv_aujourdhui=total_rdv_aujourdhui,
+                         date_du_jour=date_du_jour
+    )
 
 
 # =======================================================
@@ -231,7 +236,7 @@ def get_disponibilites(medecin_id, date):
 
 
 # =======================================================
-# RÉSERVATION DE RENDEZ-VOUS
+# RÉSERVATION DE RENDEZ-VOUS (optimisée avec threading)
 # =======================================================
 @appointments_bp.route('/rendez-vous/reserver', methods=['POST'])
 @login_required
@@ -250,13 +255,13 @@ def reserver_rdv():
         return redirect(url_for('appointments.prendre_rdv'))
     
     try:
-        # Vérifier que le médecin est de la bonne clinique
-        medecin = User.query.get(medecin_id)
+        # Vérifier que le médecin est de la bonne clinique (optimisé)
+        medecin = User.query.filter_by(id=medecin_id, role='medecin').first()
         if not medecin or (current_user.role != 'super_admin' and medecin.clinique_id != current_user.clinique_id):
             flash('Médecin non autorisé', 'danger')
             return redirect(url_for('appointments.prendre_rdv'))
         
-        # Créer ou récupérer le patient
+        # Créer ou récupérer le patient (optimisé)
         patient = Patient.query.filter_by(telephone=patient_tel).first()
         if not patient:
             patient = Patient(
@@ -266,7 +271,7 @@ def reserver_rdv():
                 clinique_id=medecin.clinique_id
             )
             db.session.add(patient)
-            db.session.commit()
+            db.session.flush()  # Pour obtenir l'ID sans commit
         else:
             # Vérifier que le patient est de la bonne clinique
             if patient.clinique_id != medecin.clinique_id and current_user.role != 'super_admin':
@@ -276,12 +281,12 @@ def reserver_rdv():
             # Mettre à jour l'email si fourni
             if patient_email and patient.email != patient_email:
                 patient.email = patient_email
-                db.session.commit()
         
         # Vérifier que le créneau est toujours disponible
+        date_obj = datetime.strptime(date, '%Y-%m-%d').date()
         rdv_existant = Appointment.query.filter_by(
             medecin_id=medecin_id,
-            date=datetime.strptime(date, '%Y-%m-%d').date(),
+            date=date_obj,
             heure=heure,
             statut='confirme'
         ).first()
@@ -290,39 +295,60 @@ def reserver_rdv():
             flash('Ce créneau n\'est plus disponible', 'danger')
             return redirect(url_for('appointments.prendre_rdv'))
         
-        # Créer le rendez-vous avec la clinique_id
+        # Créer le rendez-vous
         rdv = Appointment(
             patient_id=patient.id,
             medecin_id=medecin_id,
             clinique_id=medecin.clinique_id,
-            date=datetime.strptime(date, '%Y-%m-%d').date(),
+            date=date_obj,
             heure=heure,
             motif=motif,
             statut='confirme'
         )
         
         db.session.add(rdv)
-        db.session.commit()
+        db.session.commit()  # Un seul commit pour tout
         
-        # =======================================================
-        # ENVOI D'EMAIL ET SMS
-        # =======================================================
+        # Formatage de la date pour les notifications
+        date_formatee = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
+        
+        # 🔥 ENVOI ASYNCHRONE (ne ralentit pas la réponse)
+        thread = threading.Thread(target=envoyer_notifications_async, 
+                                 args=(patient, medecin, date_formatee, heure, rdv))
+        thread.daemon = True  # Le thread s'arrête avec le programme
+        thread.start()
+        
+        flash('✅ Rendez-vous confirmé! Les notifications seront envoyées.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'❌ Erreur lors de la réservation: {str(e)}', 'danger')
+        print(f"❌ Erreur réservation: {e}")
+    
+    return redirect(url_for('appointments.dashboard'))
+
+
+# 🔥 Fonction d'envoi asynchrone
+def envoyer_notifications_async(patient, medecin, date_formatee, heure, rdv):
+    """Envoyer les notifications en arrière-plan (ne bloque pas la réponse)"""
+    try:
         from app.utils.email_utils import envoyer_confirmation_rdv
         from app.utils.sms_utils import envoyer_sms_confirmation_rdv, formater_numero_senegal
         
-        # Formatage de la date pour l'email
-        date_formatee = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
-        
         # 1. ENVOI EMAIL
         if patient.email:
-            envoyer_confirmation_rdv(
-                patient_nom=patient.nom,
-                patient_email=patient.email,
-                date_rdv=date_formatee,
-                heure_rdv=heure,
-                medecin_nom=medecin.nom,
-                annulation_token=rdv.annulation_token
-            )
+            try:
+                envoyer_confirmation_rdv(
+                    patient_nom=patient.nom,
+                    patient_email=patient.email,
+                    date_rdv=date_formatee,
+                    heure_rdv=heure,
+                    medecin_nom=medecin.nom,
+                    annulation_token=rdv.annulation_token
+                )
+                print(f"✅ Email envoyé à {patient.email}")
+            except Exception as e:
+                print(f"❌ Erreur envoi email: {e}")
         
         # 2. ENVOI SMS
         if patient.telephone:
@@ -335,17 +361,12 @@ def reserver_rdv():
                     heure_rdv=heure,
                     medecin_nom=medecin.nom
                 )
+                print(f"✅ SMS envoyé à {patient.telephone}")
             except Exception as e:
                 print(f"❌ Erreur envoi SMS: {e}")
-        
-        flash('Rendez-vous confirmé! Un email et un SMS ont été envoyés.', 'success')
-        
+                
     except Exception as e:
-        db.session.rollback()
-        flash(f'Erreur lors de la réservation: {str(e)}', 'danger')
-        print(f"❌ Erreur réservation: {e}")
-    
-    return redirect(url_for('appointments.dashboard'))
+        print(f"❌ Erreur dans les notifications: {e}")
 
 
 # =======================================================
@@ -411,24 +432,38 @@ def annuler_rdv(rdv_id):
 
 
 # =======================================================
-# GESTION DES CRÉNEAUX (filtrés par clinique)
+# GESTION DES CRÉNEAUX (filtrés par clinique et médecin)
 # =======================================================
 @appointments_bp.route('/creneaux/gestion')
 @login_required
 def gerer_creneaux():
-    """Gestion des créneaux (uniquement ceux de la clinique)"""
+    """Gestion des créneaux - accessible aux médecins et admins"""
+    medecin_id = request.args.get('medecin_id', type=int)
     today = datetime.now().date()
     
-    if current_user.role == 'super_admin':
-        disponibilites = Availability.query.filter(
-            Availability.date >= today
-        ).order_by(Availability.date).all()
-    else:
-        disponibilites = Availability.query.filter_by(
-            clinique_id=current_user.clinique_id
-        ).filter(Availability.date >= today).order_by(Availability.date).all()
+    # Construction de la requête
+    query = Availability.query
     
-    return render_template('manage_slots.html', disponibilites=disponibilites)
+    # Filtre par clinique (si pas super_admin)
+    if current_user.role != 'super_admin':
+        query = query.filter_by(clinique_id=current_user.clinique_id)
+    
+    # 🔥 CORRECTION : Filtrer PAR MÉDECIN
+    if current_user.role == 'medecin':
+        # Un médecin ne voit QUE ses propres créneaux
+        query = query.filter_by(medecin_id=current_user.id)
+        medecin_id = current_user.id  # Pour l'affichage
+    elif medecin_id:
+        # Un admin peut voir les créneaux d'un médecin spécifique
+        query = query.filter_by(medecin_id=medecin_id)
+    
+    # Filtre par date future
+    query = query.filter(Availability.date >= today).order_by(Availability.date)
+    disponibilites = query.all()
+    
+    return render_template('manage_slots.html', 
+                         disponibilites=disponibilites,
+                         medecin_id=medecin_id)
 
 
 @appointments_bp.route('/creneaux/ajouter', methods=['POST'])
@@ -439,15 +474,7 @@ def ajouter_creneaux():
     heure_debut = request.form.get('heure_debut')
     heure_fin = request.form.get('heure_fin')
     duree_rdv = request.form.get('duree_rdv', 30)
-    
-    print(f"=== AJOUT CRÉNEAU ===")
-    print(f"Date: {date}")
-    print(f"Début: {heure_debut}")
-    print(f"Fin: {heure_fin}")
-    print(f"Durée: {duree_rdv}")
-    print(f"User ID: {current_user.id}")
-    print(f"User role: {current_user.role}")
-    print(f"Clinique ID: {current_user.clinique_id}")
+    medecin_id = request.form.get('medecin_id', type=int)
     
     if not all([date, heure_debut, heure_fin]):
         flash('Tous les champs sont obligatoires', 'danger')
@@ -456,31 +483,44 @@ def ajouter_creneaux():
     try:
         date_obj = datetime.strptime(date, '%Y-%m-%d').date()
         
-        # Vérifier si des créneaux existent déjà pour cette date
+        # Déterminer le médecin cible
+        if medecin_id and current_user.role in ['super_admin', 'admin_clinique']:
+            medecin_cible = medecin_id
+        else:
+            medecin_cible = current_user.id
+        
+        # 🔥 Récupérer le médecin pour obtenir sa clinique
+        medecin = User.query.get(medecin_cible)
+        if not medecin:
+            flash('Médecin non trouvé', 'danger')
+            return redirect(url_for('appointments.gerer_creneaux'))
+        
+        # 🔥 Utiliser la clinique du médecin
+        clinique_id = medecin.clinique_id
+        
+        if not clinique_id:
+            # Si le médecin n'a pas de clinique, prendre la première disponible
+            from models import Clinique
+            clinique = Clinique.query.first()
+            if clinique:
+                clinique_id = clinique.id
+            else:
+                flash('Aucune clinique disponible. Contactez l\'administrateur.', 'danger')
+                return redirect(url_for('appointments.gerer_creneaux'))
+        
+        # Vérifier si des créneaux existent déjà
         existant = Availability.query.filter_by(
-            medecin_id=current_user.id,
+            medecin_id=medecin_cible,
             date=date_obj
         ).first()
         
         if existant:
             flash('Des créneaux existent déjà pour cette date', 'warning')
-            return redirect(url_for('appointments.gerer_creneaux'))
+            return redirect(url_for('appointments.gerer_creneaux', medecin_id=medecin_id))
         
-        # S'assurer que clinique_id n'est pas NULL
-        clinique_id = current_user.clinique_id
-        if not clinique_id and current_user.role != 'super_admin':
-            # Si pas de clinique, prendre la première disponible
-            from models import Clinique
-            clinique = Clinique.query.first()
-            if clinique:
-                clinique_id = clinique.id
-                print(f"⚠️ Clinique ID forcé à: {clinique_id}")
-            else:
-                flash('Aucune clinique disponible. Contactez l\'administrateur.', 'danger')
-                return redirect(url_for('appointments.gerer_creneaux'))
-        
+        # Créer le créneau avec la bonne clinique
         disponibilite = Availability(
-            medecin_id=current_user.id,
+            medecin_id=medecin_cible,
             clinique_id=clinique_id,
             date=date_obj,
             heure_debut=heure_debut,
@@ -491,15 +531,14 @@ def ajouter_creneaux():
         db.session.add(disponibilite)
         db.session.commit()
         
-        print(f"✅ Créneau ajouté avec ID: {disponibilite.id}")
-        flash(f'Créneaux ajoutés pour le {date}', 'success')
+        flash(f'✅ Créneaux ajoutés pour le {date}', 'success')
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ ERREUR: {str(e)}")
-        flash(f'Erreur: {str(e)}', 'danger')
+        flash(f'❌ Erreur: {str(e)}', 'danger')
+        print(f"Erreur ajout créneau: {e}")
     
-    return redirect(url_for('appointments.gerer_creneaux'))
+    return redirect(url_for('appointments.gerer_creneaux', medecin_id=medecin_id))
 
 
 @appointments_bp.route('/creneaux/supprimer/<int:dispo_id>')
@@ -523,65 +562,23 @@ def supprimer_creneaux(dispo_id):
 
 
 # =======================================================
-# ROUTE DE TEST
-# =======================================================
-@appointments_bp.route('/test-ajout')
-@login_required
-def test_ajout():
-    """Route de test pour ajouter un créneau automatiquement"""
-    try:
-        date_obj = datetime.now().date() + timedelta(days=1)
-        
-        # S'assurer que clinique_id n'est pas NULL
-        clinique_id = current_user.clinique_id
-        if not clinique_id:
-            from models import Clinique
-            clinique = Clinique.query.first()
-            if clinique:
-                clinique_id = clinique.id
-            else:
-                return "❌ Aucune clinique disponible"
-        
-        dispo = Availability(
-            medecin_id=current_user.id,
-            clinique_id=clinique_id,
-            date=date_obj,
-            heure_debut="09:00",
-            heure_fin="12:00",
-            duree_rdv=30
-        )
-        
-        db.session.add(dispo)
-        db.session.commit()
-        
-        return f"✅ Créneau ajouté pour {date_obj} (clinique {clinique_id})"
-    except Exception as e:
-        return f"❌ Erreur: {str(e)}"
-
-
-# =======================================================
-# API POUR LES PATIENTS (AJOUTÉE ICI)
+# API POUR LES PATIENTS
 # =======================================================
 @appointments_bp.route('/api/patients')
 @login_required
 def api_patients():
-    """API pour récupérer les patients avec pagination, filtres et tri"""
-    
-    # Récupérer les paramètres
-    page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 10))
+    """API pour récupérer les patients avec pagination et recherche"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
     sort = request.args.get('sort', 'nom')
     dir = request.args.get('dir', 'asc')
     search = request.args.get('search', '')
     
-    # Construire la requête de base
     query = Patient.query
     
-    # Filtrer par clinique
     if current_user.role != 'super_admin':
         query = query.filter_by(clinique_id=current_user.clinique_id)
     
-    # Recherche
     if search:
         query = query.filter(
             db.or_(
@@ -591,9 +588,6 @@ def api_patients():
             )
         )
     
-    # Compter le total avant pagination
-    total = query.count()
-    
     # Tri
     if dir == 'asc':
         query = query.order_by(getattr(Patient, sort))
@@ -601,27 +595,25 @@ def api_patients():
         query = query.order_by(getattr(Patient, sort).desc())
     
     # Pagination
-    patients = query.offset((page - 1) * per_page).limit(per_page).all()
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     
-    # Formater les résultats
-    result = []
-    for p in patients:
-        result.append({
+    patients = []
+    for p in pagination.items:
+        patients.append({
             'id': p.id,
             'nom': p.nom,
             'telephone': p.telephone,
             'email': p.email,
             'date_naissance': p.date_naissance.strftime('%d/%m/%Y') if p.date_naissance else None,
-            'date_creation': p.date_creation.strftime('%d/%m/%Y'),
-            'clinique_id': p.clinique_id
+            'date_creation': p.date_creation.strftime('%d/%m/%Y') if hasattr(p, 'date_creation') and p.date_creation else 'Nouveau',
+            'avatar': getattr(p, 'avatar', None)
         })
     
     return jsonify({
-        'patients': result,
-        'total': total,
-        'pages': ceil(total / per_page),
-        'current_page': page,
-        'per_page': per_page
+        'patients': patients,
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'current_page': page
     })
 
 
@@ -642,7 +634,6 @@ def api_disponibilites():
     def parse_fullcalendar_date(date_str):
         if not date_str:
             return None
-        # Enlever le décalage horaire (ex: +01:00) et l'espace
         date_str = re.sub(r'[+-]\d{2}:\d{2}', '', date_str)
         date_str = date_str.replace(' ', 'T')
         try:
@@ -650,7 +641,6 @@ def api_disponibilites():
         except:
             return None
     
-    # Convertir les dates
     start_date = parse_fullcalendar_date(start)
     end_date = parse_fullcalendar_date(end)
     
@@ -660,23 +650,18 @@ def api_disponibilites():
     if not end_date:
         end_date = start_date + timedelta(days=30)
     
-    # Construire la requête de base
     query = Availability.query
     
-    # Filtrer par clinique
     if current_user.role != 'super_admin':
         query = query.filter_by(clinique_id=current_user.clinique_id)
     
-    # Filtrer par période
     query = query.filter(Availability.date >= start_date, Availability.date <= end_date)
     
-    # Filtrer par médecin
     if medecin_filter != 'all':
         query = query.filter_by(medecin_id=medecin_filter)
     
     disponibilites = query.order_by(Availability.date, Availability.heure_debut).all()
     
-    # Formater pour FullCalendar
     result = []
     for dispo in disponibilites:
         medecin = User.query.get(dispo.medecin_id)
@@ -686,7 +671,7 @@ def api_disponibilites():
             'title': f"Disponible - Dr. {medecin.nom}",
             'start': f"{dispo.date.isoformat()}T{dispo.heure_debut}",
             'end': f"{dispo.date.isoformat()}T{dispo.heure_fin}",
-            'backgroundColor': '#6c757d',  # Gris
+            'backgroundColor': '#6c757d',
             'borderColor': '#6c757d',
             'display': 'background',
             'extendedProps': {
@@ -697,25 +682,6 @@ def api_disponibilites():
         })
     
     return jsonify(result)
-
-
-# =======================================================
-# ROUTE DE DÉBOGAGE
-# =======================================================
-@appointments_bp.route('/debug/creneaux')
-@login_required
-def debug_creneaux():
-    if current_user.role == 'super_admin':
-        creneaux = Availability.query.all()
-    else:
-        creneaux = Availability.query.filter_by(clinique_id=current_user.clinique_id).all()
-    
-    result = "<h3>Vos créneaux en base :</h3><ul>"
-    for c in creneaux:
-        result += f"<li>ID: {c.id} - Clinique: {c.clinique_id} - {c.date} - {c.heure_debut} à {c.heure_fin}</li>"
-    result += f"</ul><p>Total: {len(creneaux)} créneaux</p>"
-    result += '<br><a href="/creneaux/gestion">Retour à la gestion</a>'
-    return result
 
 
 # =======================================================
@@ -732,11 +698,9 @@ def api_rendez_vous():
     medecin_filter = request.args.get('medecin', 'all')
     statut_filter = request.args.get('statut', 'all')
     
-    # Fonction pour parser les dates FullCalendar
     def parse_fullcalendar_date(date_str):
         if not date_str:
             return None
-        # Enlever le décalage horaire (ex: +01:00) et l'espace
         date_str = re.sub(r'[+-]\d{2}:\d{2}', '', date_str)
         date_str = date_str.replace(' ', 'T')
         try:
@@ -744,7 +708,6 @@ def api_rendez_vous():
         except:
             return None
     
-    # Convertir les dates
     start_date = parse_fullcalendar_date(start)
     end_date = parse_fullcalendar_date(end)
     
@@ -754,30 +717,23 @@ def api_rendez_vous():
     if not end_date:
         end_date = start_date + timedelta(days=30)
     
-    # Construire la requête de base
     query = Appointment.query
     
-    # Filtrer par clinique
     if current_user.role != 'super_admin':
         query = query.filter_by(clinique_id=current_user.clinique_id)
     
-    # Filtrer par période
     query = query.filter(Appointment.date >= start_date, Appointment.date <= end_date)
     
-    # Filtrer par médecin
     if medecin_filter != 'all':
         query = query.filter_by(medecin_id=medecin_filter)
     
-    # Filtrer par statut
     if statut_filter != 'all':
         query = query.filter_by(statut=statut_filter)
     
     rdvs = query.order_by(Appointment.date, Appointment.heure).all()
     
-    # Formater pour FullCalendar
     result = []
     for rdv in rdvs:
-        # Calculer l'heure de fin (par défaut 30 min)
         heure_debut = datetime.strptime(rdv.heure, '%H:%M')
         heure_fin = (heure_debut + timedelta(minutes=30)).strftime('%H:%M')
         
@@ -803,7 +759,6 @@ def api_rendez_vous():
 @login_required
 def calendrier():
     """Page du calendrier des rendez-vous"""
-    # Récupérer les médecins pour le filtre
     if current_user.role == 'super_admin':
         medecins = User.query.filter_by(role='medecin', actif=True).all()
     else:
@@ -817,13 +772,31 @@ def calendrier():
 
 
 # =======================================================
+# DÉTAILS D'UN PATIENT
+# =======================================================
+@appointments_bp.route('/patient/<int:patient_id>')
+@login_required
+def details_patient(patient_id):
+    """Voir les détails d'un patient"""
+    patient = Patient.query.get_or_404(patient_id)
+    
+    # Vérification des droits
+    if current_user.role != 'super_admin' and patient.clinique_id != current_user.clinique_id:
+        flash('Vous n\'avez pas accès à ce patient', 'danger')
+        return redirect(url_for('appointments.liste_patients'))
+    
+    # Pour l'instant, redirige vers la liste avec un message
+    flash(f'Détails du patient {patient.nom} (fonctionnalité à venir)', 'info')
+    return redirect(url_for('appointments.liste_patients'))
+
+
+# =======================================================
 # EXPORT POUR LES MÉDECINS
 # =======================================================
 @appointments_bp.route('/export/mes-patients/csv')
 @login_required
 def export_mes_patients_csv():
     """Exporter la liste des patients du médecin connecté au format CSV"""
-    # Récupérer les patients du médecin (via ses rendez-vous)
     rdvs = Appointment.query.filter_by(medecin_id=current_user.id).all()
     patient_ids = set([rdv.patient_id for rdv in rdvs])
     patients = Patient.query.filter(Patient.id.in_(patient_ids)).all()
@@ -834,7 +807,6 @@ def export_mes_patients_csv():
     cw.writerow(['ID', 'Nom', 'Téléphone', 'Email', 'Date naissance', 'Dernier RDV'])
     
     for p in patients:
-        # Dernier rendez-vous du patient avec ce médecin
         dernier_rdv = Appointment.query.filter_by(
             patient_id=p.id, 
             medecin_id=current_user.id
@@ -859,7 +831,6 @@ def export_mes_patients_csv():
 @login_required
 def export_mes_rendez_vous_pdf():
     """Exporter la liste des rendez-vous du médecin au format PDF"""
-    # Récupérer les rendez-vous du médecin
     rdvs = Appointment.query.filter_by(medecin_id=current_user.id).order_by(Appointment.date, Appointment.heure).all()
     
     buffer = BytesIO()
