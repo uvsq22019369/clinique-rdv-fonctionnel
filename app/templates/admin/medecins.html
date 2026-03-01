@@ -5,7 +5,19 @@
 {% block content %}
 <div class="row mb-4">
     <div class="col">
-        <h2><i class="bi bi-person-badge"></i> {{ _('Gestion des médecins') }}</h2>
+        <h2><i class="bi bi-person-badge"></i> 
+            {% if current_user.role == 'super_admin' %}
+                {{ _('Gestion des médecins (toutes cliniques)') }}
+            {% else %}
+                {{ _('Gestion des médecins de ma clinique') }}
+            {% endif %}
+        </h2>
+        {% if current_user.role != 'super_admin' %}
+        <p class="text-muted">
+            <i class="bi bi-building me-1"></i>
+            {{ _('Clinique') }}: <strong>{{ current_user.clinique.nom if current_user.clinique else 'N/A' }}</strong>
+        </p>
+        {% endif %}
     </div>
     <div class="col text-end">
         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#ajouterModal">
@@ -13,6 +25,14 @@
         </button>
     </div>
 </div>
+
+<!-- Message d'information pour admin clinique -->
+{% if current_user.role != 'super_admin' %}
+<div class="alert alert-info mb-4">
+    <i class="bi bi-info-circle"></i>
+    {{ _('Vous gérez les médecins de votre clinique uniquement. Les médecins ajoutés seront automatiquement rattachés à votre clinique.') }}
+</div>
+{% endif %}
 
 <!-- Formulaire d'ajout (modal) avec UPLOAD DE PHOTO -->
 <div class="modal fade" id="ajouterModal" tabindex="-1">
@@ -76,6 +96,9 @@
                             {% endfor %}
                         </select>
                     </div>
+                    {% else %}
+                    <!-- Pour admin clinique, champ caché avec sa clinique -->
+                    <input type="hidden" name="clinique_id" value="{{ current_user.clinique_id }}">
                     {% endif %}
                     
                     <div class="alert alert-info">
@@ -110,9 +133,7 @@
                             <th>{{ _('Spécialité') }}</th>
                             <th>{{ _('Patients') }}</th>
                             <th>{{ _('RDV Aujourd\'hui') }}</th>
-                            {% if current_user.role == 'super_admin' %}
                             <th>{{ _('Clinique') }}</th>
-                            {% endif %}
                             <th>{{ _('Statut') }}</th>
                             <th>{{ _('Inscription') }}</th>
                             <th>{{ _('Actions') }}</th>
@@ -153,15 +174,17 @@
                                 <span class="badge bg-success">{{ m.nb_rdv_aujourdhui or 0 }}</span>
                             </td>
                             
-                            {% if current_user.role == 'super_admin' %}
+                            <!-- Clinique avec badge "Ma clinique" -->
                             <td class="align-middle">
                                 {% if m.clinique %}
                                     {{ m.clinique.nom }}
+                                    {% if current_user.role != 'super_admin' and m.clinique_id == current_user.clinique_id %}
+                                        <span class="badge bg-info ms-1">{{ _('Ma clinique') }}</span>
+                                    {% endif %}
                                 {% else %}
                                     <span class="text-muted">{{ _('Aucune') }}</span>
                                 {% endif %}
                             </td>
-                            {% endif %}
                             
                             <td class="align-middle">
                                 {% if m.actif %}
